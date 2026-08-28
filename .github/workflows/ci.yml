@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Build fixtures
+        run: python tests/make_fixtures.py
+      - name: Run tests
+        run: python -m pytest tests/ -q
+      - name: Smoke CLI
+        run: |
+          pdf-a11y rules
+          pdf-a11y audit tests/fixtures/clean.pdf
+          pdf-a11y audit tests/fixtures/fixable.pdf --json /tmp/v.json || true
+          pdf-a11y fix tests/fixtures/tagged-nooutline.pdf --out /tmp/f.pdf
+          test -f /tmp/f.pdf
+          pdf-a11y audit --batch tests/fixtures || true
