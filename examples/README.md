@@ -1,0 +1,1 @@
+NOTE: These files were saved from a WCAG compliant Word document named No Knead Bread.docx. No Knead Bread-print.pdf was created by choosing File / Print to PDF. No Knead Bread-saveas.pdf was created by choosing File / Save As. 
