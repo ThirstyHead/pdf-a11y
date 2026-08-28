@@ -7,12 +7,15 @@ Fixtures (tests/fixtures/):
   clean.pdf         - tagged + marked + lang + title + displayDocTitle + outline
                       + image /Alt + balanced BDC/EMC; expect 0 findings
   fixable.pdf       - untagged; missing lang/title/displayDocTitle/outline;
-                      image w/o Alt; expect 7 findings (tagging itself is the
+                      image w/o Alt; expect 6 findings (tagging itself is the
                       unfixable root cause in 0.1.0)
   violations.pdf    - tagged but weak: heading level skip (H1->H3) and a table
                       row without TH; expect exactly 2 tag-tree-weak findings
   marked-notree.pdf - /Marked true but no StructTreeRoot;
                       expect exactly one 1.3.1 finding (tag-tree-missing)
+  tagged-nooutline.pdf - tagged + marked + complete catalog but NO outline;
+                      headings exist in the tree, so outline-missing is the
+                      only finding and it is derivable (fixable=True)
   bread.pdf         - copy of examples/No Knead Bread-print.pdf (real-world sample)
 
 All fixtures are generated with pikepdf only (base-14 Helvetica, no embedding),
@@ -162,7 +165,7 @@ def make_clean():
 
 def make_fixable():
     """Untagged, no lang/title/displayDocTitle/outline, image w/o /Alt.
-    Oracle: audit -> exactly 7 findings (see test_fixable_finding_set)."""
+    Oracle: audit -> exactly 6 findings (see test_fixable_finding_set)."""
     final = FIX / "fixable.pdf"
     tmp = _base_to_tmp("fixable", CONTENT_PLAIN)
     tmp.rename(final)
@@ -212,6 +215,30 @@ def make_violations():
     tmp.unlink()
 
 
+def make_tagged_nooutline():
+    """clean.pdf minus the outline: tagged + marked + complete catalog,
+    headings present in the tree, no /Outlines.
+    Oracle: exactly one finding (outline-missing, fixable=True); default
+    fix reaches PASS."""
+    final = FIX / "tagged-nooutline.pdf"
+    tmp = _base_to_tmp("tagged-nooutline", CONTENT_MARKED)
+    with DocModel.open(tmp) as dm:
+        dm.set_lang("en")
+        dm.set_title("Tagged NoOutline Fixture")
+        dm.set_display_doc_title(True)
+        dm.set_marked(True)
+        dm.set_image_alt(0, "Im1", "A square")
+        pdoc = dm.doc
+        root_el = _new_root_el(pdoc)
+        h1 = _make_el(pdoc, "/H1", 1, root_el, alt="Big Title")
+        p = _make_el(pdoc, "/P", 2, root_el)
+        fig = _make_el(pdoc, "/Figure", 3, root_el, alt="A square")
+        root_el["/K"] = pikepdf.Array([h1, p, fig])
+        _finalize_root(pdoc, root_el, [1, 2, 3])
+        dm.save(final)
+    tmp.unlink()
+
+
 def copy_bread():
     """Real-world sample (subsetted fonts, custom encoding): the hard case."""
     shutil.copy(ROOT / "examples" / "No Knead Bread-print.pdf", FIX / "bread.pdf")
@@ -221,6 +248,7 @@ if __name__ == "__main__":
     make_clean()
     make_fixable()
     make_marked_notree()
+    make_tagged_nooutline()
     make_violations()
     copy_bread()
     print(f"fixtures written to {FIX}")

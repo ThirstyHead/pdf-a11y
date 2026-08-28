@@ -28,7 +28,8 @@ RULE_NOTES = {
     "display-doctitle-off": "Set /ViewerPreferences /DisplayDocTitle true.",
     "pdf-unmarked": "Set /MarkInfo /Marked true (only when a tag tree already exists). "
                     "Untagged documents need the tag tree built from the source (manual).",
-    "tag-tree-missing": "Build the tag tree from the source document's structure (manual).",
+    "tag-tree-missing": "Only fires when /Marked is true but the structure tree is "
+                       "missing; untagged documents are reported under pdf-unmarked.",
     "tag-tree-weak": "Repair the tag tree's quality (headings, figures, table headers, "
                      "marked-content association) in a tag editor or by re-exporting.",
     "image-alt-missing": "Alt text is human content. The auto-fix inserts an "
