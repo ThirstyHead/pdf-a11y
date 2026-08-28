@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pdf-a11y"
+version = "0.1.0"
+description = "Audit and remediate PDF files against WCAG 2.1 AA / PDF-UA (standalone, deterministic, no AI required)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "pdf-a11y contributors" }]
+keywords = ["accessibility", "wcag", "pdf", "pdf-ua", "pdf/ua", "audit", "remediation", "pikepdf"]
+dependencies = [
+    "pikepdf>=9.0",
+    "pymupdf>=1.24",
+    "pdfplumber>=0.11",
+    "wcag-contrast-ratio>=0.9,<1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+pdf-a11y = "pdf_a11y.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+pdf_a11y = ["sc_cache.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
