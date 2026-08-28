@@ -421,14 +421,15 @@ class DocModel:
             memo[i] = 1 + sum(count(j) for j in c)
             return memo[i]
 
-        root = new_dict({"/Type": "/Outlines"})
+        root = self.doc.make_indirect(new_dict({"/Type": "/Outlines"}))
         node_objs = {}
         last_node = {}   # i -> last child node object (for /Next chaining)
 
         def build(i):
             """Create the node dict for item i, wire children, return the node."""
-            node = new_dict({"/Title": resolved[i][1], "/Dest": resolved[i][2],
-                             "/Parent": root})
+            node = self.doc.make_indirect(new_dict({"/Title": resolved[i][1],
+                                                    "/Dest": resolved[i][2],
+                                                    "/Parent": root}))
             node_objs[i] = node
             c = children_of[i]
             if c:
