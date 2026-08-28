@@ -188,7 +188,13 @@ class UnmarkedPdf:
 
 
 class MissingTagTree:
-    """SC 1.3.1 / PDF-UA: /StructTreeRoot must exist in a tagged PDF."""
+    """SC 1.3.1 / PDF-UA: /StructTreeRoot must exist in a tagged PDF.
+
+    Only fires for the inconsistent state "/Marked true but no tree".
+    An untagged document (no Marked, no tree) is reported exactly once,
+    by UnmarkedPdf — the missing tree is that finding's root cause, not a
+    second finding.
+    """
 
     rule_id = "tag-tree-missing"
     sc = "1.3.1"
@@ -197,20 +203,14 @@ class MissingTagTree:
     def check(self, dm, ctx):
         if dm.struct_tree() is not None:
             return []
-        marked = dm.is_marked()
-        if marked:
-            return [Finding(self.rule_id, self.sc, self.severity, "catalog",
-                            "/MarkInfo /Marked is true but /StructTreeRoot is absent; "
-                            "the document claims tagging without a structure tree.",
-                            "Marked=true, StructTreeRoot absent", True,
-                            "Restore the structure tree (manual) or drop the Marked flag.")]
+        if not dm.is_marked():
+            # Untagged (no Marked, no tree) is reported once, by UnmarkedPdf.
+            return []
         return [Finding(self.rule_id, self.sc, self.severity, "catalog",
-                        "Tagged PDF has no /StructTreeRoot; content is not associated "
-                        "with logical structure.",
-                        "StructTreeRoot absent", False,
-                        "Build the tag tree from the source document's structure "
-                        "(manual: Word 'Save as PDF' with tags, Acrobat TAG, or a "
-                        "tag editor).")]
+                        "/MarkInfo /Marked is true but /StructTreeRoot is absent; "
+                        "the document claims tagging without a structure tree.",
+                        "Marked=true, StructTreeRoot absent", True,
+                        "Restore the structure tree (manual) or drop the Marked flag.")]
 
     def fix(self, dm, finding, ctx):
         return False

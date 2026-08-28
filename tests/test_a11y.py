@@ -39,10 +39,18 @@ def test_clean_passes():
 
 def test_fixable_finding_set():
     res = audit_file(FIX / "fixable.pdf")
-    assert _ids(res) == {"image-alt-missing", "pdf-unmarked", "tag-tree-missing",
+    # Unmarked-but-treeless is reported once, by pdf-unmarked (not twice).
+    assert _ids(res) == {"image-alt-missing", "pdf-unmarked",
                          "language-missing", "title-missing", "display-doctitle-off",
                          "outline-missing"}
     assert res["summary"]["pass"] is False
+
+
+def test_untagged_single_131_finding():
+    res = audit_file(FIX / "fixable.pdf")
+    c131 = [f for f in res["findings"] if f["sc"] == "1.3.1"]
+    assert len(c131) == 1
+    assert c131[0]["rule_id"] == "pdf-unmarked"
 
 
 def test_marked_notree_single_131():
@@ -65,9 +73,9 @@ def test_violations_weak_tree():
 # -- e2e fix + CLI exit codes ------------------------------------------------
 
 def test_fix_one_fixable_still_fails_without_scaffold(tmp_path):
-    """In 0.1.0 the untagged root cause (pdf-unmarked + tag-tree-missing) is
+    """In 0.1.0 the untagged root cause (pdf-unmarked) is
     unfixable, so even with alt-map + outline-map the doc still FAILs after
-    fix: 7 -> 2 findings, both the 1.3.1 pair. (Phase 5 --scaffold will make
+    fix: 6 -> 1 finding, the single 1.3.1. (Phase 5 --scaffold will make
     this reach pass.)"""
     from pdf_a11y.remediate import fix_one
     from pdf_a11y.rules import AuditContext
@@ -77,10 +85,10 @@ def test_fix_one_fixable_still_fails_without_scaffold(tmp_path):
                        outline_map=[(1, "Big Title", 0)])
     fr = fix_one(FIX / "fixable.pdf", out, ctx)
     assert fr["status"] == "fail"
-    assert fr["findings_before"] == 7
+    assert fr["findings_before"] == 6
     after = fr["reaudit"]
-    assert after["summary"]["total"] == 2
-    assert {f["rule_id"] for f in after["findings"]} == {"pdf-unmarked", "tag-tree-missing"}
+    assert after["summary"]["total"] == 1
+    assert {f["rule_id"] for f in after["findings"]} == {"pdf-unmarked"}
 
 
 def test_cli_exit_codes(tmp_path):
