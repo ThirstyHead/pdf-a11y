@@ -70,6 +70,43 @@ def test_violations_weak_tree():
     assert res["summary"]["pass"] is False
 
 
+# -- Phase 3: honest fixable flag for outline-missing -------------------------
+
+def test_outline_missing_unfixable_by_default():
+    """No tag tree, no --outline-map: the fix cannot succeed, so the finding
+    must report fixable=False (previously True, silently left unfixed)."""
+    res = audit_file(FIX / "fixable.pdf")
+    om = [f for f in res["findings"] if f["rule_id"] == "outline-missing"]
+    assert len(om) == 1
+    assert om[0]["fixable"] is False
+
+
+def test_outline_missing_fixable_with_tree():
+    """Tagged doc with headings but no outline: derivable from the tag tree."""
+    res = audit_file(FIX / "tagged-nooutline.pdf")
+    assert _ids(res) == {"outline-missing"}
+    assert res["findings"][0]["fixable"] is True
+
+
+def test_outline_missing_fixable_with_outline_map():
+    from pdf_a11y.rules import AuditContext
+    res = audit_file(FIX / "fixable.pdf",
+                     AuditContext(source_name="fixable.pdf",
+                                  outline_map=[(1, "Big Title", 0)]))
+    om = [f for f in res["findings"] if f["rule_id"] == "outline-missing"]
+    assert om[0]["fixable"] is True
+
+
+def test_fix_one_tagged_nooutline_reaches_pass(tmp_path):
+    """A doc whose only finding is outline-missing (derivable from its tag
+    tree) must reach PASS with default (no-knob) fix."""
+    from pdf_a11y.remediate import fix_one
+    fr = fix_one(FIX / "tagged-nooutline.pdf", tmp_path / "t.fixed.pdf")
+    assert fr["status"] == "pass"
+    assert fr["findings_before"] == 1
+    assert fr["reaudit"]["summary"]["total"] == 0
+
+
 # -- e2e fix + CLI exit codes ------------------------------------------------
 
 def test_fix_one_fixable_still_fails_without_scaffold(tmp_path):

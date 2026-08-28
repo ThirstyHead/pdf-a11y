@@ -415,10 +415,15 @@ class OutlineMissing:
     def check(self, dm, ctx):
         if dm.outlines:
             return []
+        # The fix needs *either* --outline-map *or* existing headings; without
+        # both it cannot succeed, so report the honest fixable state.
+        derivable = bool(ctx.outline_map) or (
+            dm.struct_tree() is not None
+            and any(t.strip() for _, t in dm.heading_levels(dm.struct_tree())))
         return [Finding(self.rule_id, self.sc, self.severity, "catalog",
                         "Document has no outline (TOC); assistive technology users "
                         "cannot navigate by structure.",
-                        "/Outlines absent", True,
+                        "/Outlines absent", derivable,
                         "Build the outline from H1/H2 headings (--outline-map "
                         "'level=title:page' entries) or from the tag tree "
                         "(deterministic when headings exist).")]
