@@ -49,6 +49,9 @@ class AuditContext:
     # deterministic outline for the outline-missing fix:
     # [(level, title, page_no_0based), ...]
     outline_map: list = field(default_factory=list)
+    # opt-in deterministic tag-tree scaffolding for untagged documents
+    # (Phase 5; default off so default fix behavior is untouched)
+    scaffold: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -169,19 +172,24 @@ class UnmarkedPdf:
                             "the document is not declared tagged.",
                             "/MarkInfo absent or /Marked false", True,
                             "Set /MarkInfo /Marked true (deterministic).")]
+        # With --scaffold, the tree is created deterministically, so this
+        # finding IS fixable (the scaffold path runs before this rule's fix).
         return [Finding(self.rule_id, self.sc, self.severity, "catalog",
                         "Document is untagged: no /MarkInfo /Marked and no "
                         "StructTreeRoot. Assistive technology has no logical "
                         "structure to consume.",
-                        "/MarkInfo absent, StructTreeRoot absent", False,
+                        "/MarkInfo absent, StructTreeRoot absent", bool(ctx.scaffold),
                         "Create a tag tree (manual: use a PDF tag editor or re-export "
-                        "from the source document with structure). Deterministic "
-                        "scaffolding is available but does not create logical structure.")]
+                        "from the source document with structure). With --scaffold, "
+                        "a deterministic tag tree is scaffolded from the content "
+                        "stream (best-effort; review before PDF/UA certification).")]
 
     def fix(self, dm, finding, ctx):
-        # Marking a document with no tag tree would be a lie; only fix the
-        # case where the tree exists but the flag was dropped.
+        # Marking a document with no tag tree would be a lie; either the tree
+        # exists and the flag was dropped, or --scaffold builds the tree.
         if dm.struct_tree() is None:
+            if ctx.scaffold:
+                return _scaffold_fix(dm, ctx)
             return False
         dm.set_marked(True)
         return True
@@ -213,7 +221,12 @@ class MissingTagTree:
                         "Restore the structure tree (manual) or drop the Marked flag.")]
 
     def fix(self, dm, finding, ctx):
-        return False
+        if not ctx.scaffold:
+            return False
+        if dm.struct_tree() is not None:
+            dm.set_marked(True)
+            return True
+        return _scaffold_fix(dm, ctx)
 
 
 class WeakTagTree:
@@ -416,17 +429,22 @@ class OutlineMissing:
         if dm.outlines:
             return []
         # The fix needs *either* --outline-map *or* existing headings; without
-        # both it cannot succeed, so report the honest fixable state.
+        # both it cannot succeed, so report the honest fixable state. With
+        # --scaffold, an untagged doc gets a deterministic tree first, after
+        # which the outline IS derivable from its headings.
         derivable = bool(ctx.outline_map) or (
             dm.struct_tree() is not None
             and any(t.strip() for _, t in dm.heading_levels(dm.struct_tree())))
+        if not derivable and ctx.scaffold:
+            derivable = True
         return [Finding(self.rule_id, self.sc, self.severity, "catalog",
                         "Document has no outline (TOC); assistive technology users "
                         "cannot navigate by structure.",
                         "/Outlines absent", derivable,
                         "Build the outline from H1/H2 headings (--outline-map "
                         "'level=title:page' entries) or from the tag tree "
-                        "(deterministic when headings exist).")]
+                        "(deterministic when headings exist). With --scaffold, "
+                        "an untagged document gets a deterministic tree first.")]
 
     def fix(self, dm, finding, ctx):
         entries = list(ctx.outline_map)
@@ -602,6 +620,19 @@ def _pick_title(dm, ctx) -> Optional[str]:
         if stem.lower().endswith(suffix):
             stem = stem[: -len(suffix)]
     return stem.replace("-", " ").replace("_", " ").strip() or None
+
+
+def _scaffold_fix(dm, ctx):
+    """Opt-in deterministic tag-tree scaffold (Phase 5). Builds a tree from
+    the source file's content stream + fitz text; returns False when nothing
+    could be structured (e.g. a page with no decodable text units)."""
+    from .scaffold import build_plan
+    try:
+        plan = build_plan(dm.path)
+        n = dm.build_scaffold(plan.blocks_by_page())
+    except Exception:
+        return False
+    return n > 0
 
 
 def _has_fix(r) -> bool:

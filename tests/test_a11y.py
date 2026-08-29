@@ -134,3 +134,21 @@ def test_cli_exit_codes(tmp_path):
     assert main(["audit", str(FIX / "fixable.pdf")]) == 1
     assert main(["audit", str(tmp_path / "nope.pdf")]) == 2
     assert main(["rules"]) == 0
+
+
+# -- outline structure: levels survive set_outline (regression) ---------------
+
+def test_outline_levels_preserved():
+    from pdf_a11y.docmodel import DocModel
+    dm = DocModel.open(FIX / "tagged-nooutline.pdf")
+    ok = dm.set_outline([(1, "No Knead Bread", 0), (2, "Ingredients", 0),
+                         (2, "Instructions", 0)])
+    assert ok
+    out = FIX / "tmp" / "outline-lvl.pdf"
+    out.parent.mkdir(exist_ok=True)
+    dm.save(out)
+    dm.close()
+    dm2 = DocModel.open(out)
+    assert [(e.level, e.title) for e in dm2.outlines] == \
+        [(1, "No Knead Bread"), (2, "Ingredients"), (2, "Instructions")]
+    dm2.close()

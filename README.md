@@ -57,9 +57,10 @@ Batch notes: `*.pdf` only, non-recursive, skips `~$*` lock files and `*.fixed.pd
 | `--background RRGGBB` | `FFFFFF` | assumed page background for contrast math |
 | `--alt-map 'page:ImageName=text'` | — | deterministic alt text: page number + image XObject name → `/Alt` value |
 | `--outline-map 'level=title:page'` | — | deterministic outline: heading level + title → page number |
+| `--scaffold` | off | build a deterministic tag tree for untagged documents (see "Scaffolding") |
 | `--enrich` | off | fetch normative text live from a locally installed wcag-guidelines-mcp (default: bundled offline cache) |
 
-`remediate` accepts the same `--language`, `--background`, `--alt-map`, `--outline-map` flags.
+`remediate` accepts the same `--language`, `--background`, `--alt-map`, `--outline-map`, `--scaffold` flags.
 
 ### Exit codes
 
@@ -74,6 +75,27 @@ Batch notes: `*.pdf` only, non-recursive, skips `~$*` lock files and `*.fixed.pd
 | `2` | error — file unreadable/corrupt |
 
 Batch mode (`fix --batch DIR`, `audit --batch DIR`): exit 2 if any file errored, else 1 if any failed, else 0.
+
+## Scaffolding (opt-in `--scaffold`)
+
+By default, an untagged document (no `/MarkInfo /Marked`, no structure tree) fails SC 1.3.1 and the fix leaves it manual — building a tag tree is a content-level decision. With `--scaffold`, `fix` instead builds a **deterministic tag tree** from the document's own content stream:
+
+```bash
+pdf-a11y fix recipe.pdf --scaffold
+# bread sample: 5 findings FAIL -> 0 findings PASS
+pdf-a11y audit recipe.pdf.fixed.pdf   # re-verify
+```
+
+How it works (all deterministic, no AI):
+
+1. Each page's content stream is split into top-level `BT`/`ET` text units by a string-literal-aware scanner (escaped parens, hex strings, comments; the `q`/`Q`/`cm` graphics state is tracked so font sizes and positions are measured in device space).
+2. Each unit is matched to a rendered span by PyMuPDF (same page, baseline ±2 pt, size ±0.25 pt, x-overlap) to recover its **Alt** text — this works even for subsetted, custom-encoded fonts, since the text comes from the renderer, not the raw stream bytes.
+3. Roles are assigned from font-size tiers: body size = the median of all rendered sizes; a size ≥ 1.3× body (on a 0.5 pt grid) becomes H1…Hn in rank order (capped at 6); everything else is `P`. A unit that looks like a heading but has no matched text is **demoted to P** — no fake headings.
+4. Each unit is wrapped in `/M<mcid> BDC … EMC` (1-based MCIDs in stream order), a `StructTreeRoot` with per-page `S=/Document` roots is written, headings carry `/Alt`, and `/MarkInfo /Marked` is set.
+
+Downstream fixes then run unmodified: the document title comes from the first H1's Alt, the outline is derived from the headings, and the audit's `tag-tree-weak` check verifies the BDC/EMC↔tree association.
+
+**Caveat:** a scaffolded document is a *deterministic best-effort* structure. Reading order follows the content stream, heading choices are font-size heuristics, and the audit's PASS only proves internal consistency — it does not certify PDF/UA compliance. Review the result in a tag editor before production PDF/UA certification.
 
 ## Rules
 
