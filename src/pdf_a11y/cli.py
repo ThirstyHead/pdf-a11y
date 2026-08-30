@@ -74,6 +74,7 @@ def _ctx(args, source_name) -> AuditContext:
         background_rgb=args.background,
         alt_map=_parse_alt_map(getattr(args, "alt_map", None)),
         outline_map=_parse_outline_map(getattr(args, "outline_map", None)),
+        scaffold=bool(getattr(args, "scaffold", False)),
     )
 
 
@@ -82,6 +83,9 @@ def _add_fix_flags(p):
     p.add_argument("--background", default="FFFFFF", help="assumed background RGB for contrast math")
     p.add_argument("--alt-map", help="deterministic alt text: 'page:ImageName=text' comma-separated")
     p.add_argument("--outline-map", help="deterministic outline: 'level=title:page' comma-separated")
+    p.add_argument("--scaffold", action="store_true",
+                   help="deterministic tag-tree scaffolding for untagged documents "
+                        "(opt-in; off by default)")
 
 
 def cmd_audit(args) -> int:

@@ -142,38 +142,34 @@ class DocModel:
 
     # -- reading helpers ------------------------------------------------------
     def _load_outline(self):
-        out = []
+        """All outline entries in reading order (top-down, left-right), with
+        correct levels. Recurses into /First children (sibling-only walking
+        silently dropped sub-entries)."""
         ol = key(self.catalog, "Outlines")
+        out: list = []
+        if ol is None:
+            return out
         first = key(ol, "First")
-        cur, n = first, 0
-        while cur is not None and n < 10000:
-            try:
-                lvl = self._outline_level(ol, cur)
-                title = str(key(cur, "Title") or "")
-                page_no = self._dest_page(key(cur, "Dest"))
-                if title:
-                    out.append(OutlineEntry(lvl, title, page_no))
-            except Exception:
-                pass
-            nxt = key(cur, "Next")
-            if nxt is None and nxt == cur:
-                break
-            cur = nxt
-            n += 1
-        return out
+        count = 0
 
-    def _outline_level(self, ol, item):
-        depth = 0
-        node = item
-        while node is not None:
-            node = key(node, "Parent")
-            depth += 1
-            if node is None or node is ol:
-                break
-            # guard against cycles
-            if depth > 64:
-                break
-        return max(1, min(depth, 64))
+        def rec(node, level):
+            nonlocal count
+            while node is not None and count < 10000:
+                count += 1
+                try:
+                    title = str(key(node, "Title") or "")
+                    page_no = self._dest_page(key(node, "Dest"))
+                    if title:
+                        out.append(OutlineEntry(level, title, page_no))
+                except Exception:
+                    pass
+                child = key(node, "First")
+                if child is not None:
+                    rec(child, level + 1)
+                node = key(node, "Next")
+
+        rec(first, 1)
+        return out
 
     def _dest_page(self, dest) -> int:
         """Resolve /Dest (explicit array or name) to a 0-based page index."""
@@ -190,8 +186,12 @@ class DocModel:
             if not isinstance(d, list):
                 return 0
         page_ref = d[0]
+        try:
+            ref_obj = page_ref.obj
+        except AttributeError:
+            ref_obj = page_ref
         for i, p in enumerate(self.pages):
-            if p is page_ref:
+            if p.obj == ref_obj:
                 return i
         return 0
 
@@ -427,9 +427,12 @@ class DocModel:
 
         def build(i):
             """Create the node dict for item i, wire children, return the node."""
-            node = self.doc.make_indirect(new_dict({"/Title": resolved[i][1],
-                                                    "/Dest": resolved[i][2],
-                                                    "/Parent": root}))
+            p = parent_of[i]
+            parent = root if p == -1 else node_objs[p]
+            node = self.doc.make_indirect(new_dict({
+                "/Title": resolved[i][1],
+                "/Dest": resolved[i][2],
+                "/Parent": parent}))
             node_objs[i] = node
             c = children_of[i]
             if c:
@@ -440,6 +443,7 @@ class DocModel:
                 node["/First"] = built[0]
                 for jn, kn in zip(built, built[1:]):
                     jn["/Next"] = kn
+                    kn["/Prev"] = jn
                 node["/Last"] = built[-1]
                 node["/Count"] = pikepdf.Integer(count(i))
             else:
@@ -455,6 +459,7 @@ class DocModel:
             node = build(i)
             if prev is not None:
                 prev["/Next"] = node
+                node["/Prev"] = prev
             prev = node
         root["/First"] = node_objs[root_children[0]]
         root["/Last"] = node_objs[root_children[-1]]
@@ -463,6 +468,76 @@ class DocModel:
         self.outlines = [OutlineEntry(lvl, title, page_no)
                          for (lvl, title, page_no) in entries]
         return True
+
+    def build_scaffold(self, blocks_by_page) -> int:
+        """Deterministic tag-tree scaffolding (Phase 5, opt-in via --scaffold).
+
+        ``blocks_by_page``: {page_no: [Block, ...]} in stream order (from
+        ``scaffold.ScaffoldPlan.blocks_by_page()``).
+
+        For each page, rewrites the page's single Joined content stream,
+        wrapping unit i in ``/M<mcid> BDC ... EMC`` (MCIDs are 1-based,
+        assigned in (page, stream-offset) order). Builds a per-page
+        ``S=/Document`` root element per page (``/P`` self-referencing),
+        a ``/StructTreeRoot`` (K = [page roots], ParentTree, Mcids), and sets
+        ``/MarkInfo /Marked`` true.
+
+        Returns the number of structure elements created.
+        """
+        doc = self.doc
+        page_roots = []
+        total_mcid = 0
+        n_elements = 0
+        for pi, page in enumerate(self.pages):
+            blocks = blocks_by_page.get(pi) or []
+            page_root = doc.make_indirect(new_dict({
+                "/S": pikepdf.Name("/Document"),
+                "/K": pikepdf.Array([]),
+            }))
+            page_root["/P"] = page_root
+            page_roots.append(page_root)
+            children = pikepdf.Array([])
+            c = key(page, "Contents")
+            if c is None:
+                page_root["/K"] = children
+                continue
+            if isinstance(c, pikepdf.Array):
+                data = b"".join(bytes(x.read_bytes()) for x in c)
+            else:
+                data = bytes(c.read_bytes())
+            out = bytearray()
+            pos = 0
+            for b in blocks:
+                u = b.unit
+                if u.page != pi or u.start < pos or u.end > len(data):
+                    continue
+                total_mcid += 1
+                out += data[pos:u.start]
+                out += b"/M" + str(total_mcid).encode("ascii") + b" BDC "
+                out += data[u.start:u.end]
+                out += b" EMC"
+                pos = u.end
+                el = new_dict({"/S": pikepdf.Name("/" + b.role),
+                               "/K": total_mcid,
+                               "/P": page_root})
+                if b.role.startswith("H") and u.alt.strip():
+                    el["/Alt"] = u.alt.strip()
+                children.append(doc.make_indirect(el))
+                n_elements += 1
+            out += data[pos:]
+            page["/Contents"] = pikepdf.Stream(doc, bytes(out))
+            page_root["/K"] = children
+        k_refs = pikepdf.Array(page_roots)
+        nums = pikepdf.Array([0, pikepdf.Array(page_roots)])
+        str_tree_root = doc.make_indirect(new_dict({
+            "/Type": pikepdf.Name("/StructTreeRoot"),
+            "/K": k_refs,
+            "/ParentTree": new_dict({"/Nums": nums}),
+            "/Mcids": pikepdf.Array([total_mcid]),
+        }))
+        self.catalog["/StructTreeRoot"] = str_tree_root
+        self.set_marked(True)
+        return n_elements
 
     def save(self, out_path):
         out_path = Path(out_path)
