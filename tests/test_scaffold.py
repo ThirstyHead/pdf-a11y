@@ -125,6 +125,54 @@ def test_fix_bread_with_scaffold_reaches_pass(tmp_path):
 
 
 def test_fix_bread_without_scaffold_unchanged(tmp_path):
+    """Library default ctx (scaffold=False) preserves pre-0.3.0 behavior:
+    the untagged root cause stays unfixed, so the doc still FAILs. (The
+    on-by-default decision is a CLI-level default for `fix`, not a library
+    default — see the CLI tests below.)"""
     from pdf_a11y.remediate import fix_one
     fr = fix_one(BREAD, tmp_path / "b.pdf")
-    assert fr["status"] == "fail"  # opt-in: default behavior untouched
+    assert fr["status"] == "fail"  # tag-tree finding remains manual
+
+
+# -- e2e: CLI flag wiring (default-on + opt-out + back-compat) ------------------
+
+def test_cli_fix_default_scaffolds(tmp_path):
+    """CLI: `fix` with no flags scaffolds an untagged doc by default."""
+    from pdf_a11y.cli import main
+    out = tmp_path / "default.pdf"
+    rc = main(["fix", str(BREAD), "--out", str(out)])
+    assert rc == 0
+    from pdf_a11y.docmodel import DocModel
+    dm = DocModel.open(out)
+    try:
+        assert dm.struct_tree() is not None and dm.is_marked()
+    finally:
+        dm.close()
+
+
+def test_cli_fix_no_scaffold_opt_out(tmp_path):
+    """CLI: --no-scaffold preserves the opt-in (manual) behavior."""
+    from pdf_a11y.cli import main
+    out = tmp_path / "noscaffold.pdf"
+    rc = main(["fix", str(BREAD), "--no-scaffold", "--out", str(out)])
+    assert rc == 1  # untagged doc still fails (no tree built)
+    from pdf_a11y.docmodel import DocModel
+    dm = DocModel.open(out)
+    try:
+        assert dm.struct_tree() is None
+    finally:
+        dm.close()
+
+
+def test_cli_fix_scaffold_backcompat_alias(tmp_path):
+    """CLI: --scaffold still accepted (back-compat; scaffold stays on)."""
+    from pdf_a11y.cli import main
+    out = tmp_path / "alias.pdf"
+    rc = main(["fix", str(BREAD), "--scaffold", "--out", str(out)])
+    assert rc == 0
+    from pdf_a11y.docmodel import DocModel
+    dm = DocModel.open(out)
+    try:
+        assert dm.struct_tree() is not None
+    finally:
+        dm.close()

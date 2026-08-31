@@ -57,10 +57,10 @@ Batch notes: `*.pdf` only, non-recursive, skips `~$*` lock files and `*.fixed.pd
 | `--background RRGGBB` | `FFFFFF` | assumed page background for contrast math |
 | `--alt-map 'page:ImageName=text'` | — | deterministic alt text: page number + image XObject name → `/Alt` value |
 | `--outline-map 'level=title:page'` | — | deterministic outline: heading level + title → page number |
-| `--scaffold` | off | build a deterministic tag tree for untagged documents (see "Scaffolding") |
+| `--scaffold` / `--no-scaffold` | audit: off · fix/remediate: on | build a deterministic tag tree for untagged documents (see "Scaffolding") |
 | `--enrich` | off | fetch normative text live from a locally installed wcag-guidelines-mcp (default: bundled offline cache) |
 
-`remediate` accepts the same `--language`, `--background`, `--alt-map`, `--outline-map`, `--scaffold` flags.
+`remediate` accepts the same `--language`, `--background`, `--alt-map`, `--outline-map`, `--scaffold`/`--no-scaffold` flags. As of 0.3.0, `fix` and `remediate` scaffold by default (pass `--no-scaffold` for the pre-0.3.0 manual behavior); `audit` does not scaffold by default.
 
 ### Exit codes
 
@@ -76,14 +76,15 @@ Batch notes: `*.pdf` only, non-recursive, skips `~$*` lock files and `*.fixed.pd
 
 Batch mode (`fix --batch DIR`, `audit --batch DIR`): exit 2 if any file errored, else 1 if any failed, else 0.
 
-## Scaffolding (opt-in `--scaffold`)
+## Scaffolding (on by default for `fix`/`remediate`; `--no-scaffold` to opt out)
 
-By default, an untagged document (no `/MarkInfo /Marked`, no structure tree) fails SC 1.3.1 and the fix leaves it manual — building a tag tree is a content-level decision. With `--scaffold`, `fix` instead builds a **deterministic tag tree** from the document's own content stream:
+An untagged document (no `/MarkInfo /Marked`, no structure tree) fails SC 1.3.1. As of 0.3.0, `fix` and `remediate` build a **deterministic tag tree** from the document's own content stream **by default**, so the most common untagged→tagged remediation is the out-of-the-box path. Pass `--no-scaffold` to keep the pre-0.3.0 behavior (leaves the tree manual); `audit` does not scaffold by default (pass `--scaffold` to it to preview the effect).
 
 ```bash
-pdf-a11y fix recipe.pdf --scaffold
-# bread sample: 5 findings FAIL -> 0 findings PASS
-pdf-a11y audit recipe.pdf.fixed.pdf   # re-verify
+pdf-a11y fix recipe.pdf
+# bread sample: 5 findings FAIL -> 0 findings PASS (scaffold on by default)
+pdf-a11y fix recipe.pdf --no-scaffold   # pre-0.3.0: manual tag-tree finding remains
+pdf-a11y audit recipe.pdf.fixed.pdf     # re-verify
 ```
 
 How it works (all deterministic, no AI):

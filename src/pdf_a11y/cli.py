@@ -67,31 +67,38 @@ def _parse_outline_map(s):
     return out
 
 
-def _ctx(args, source_name) -> AuditContext:
+def _ctx(args, source_name, scaffold: bool) -> AuditContext:
     return AuditContext(
         source_name=source_name,
         default_language=args.language,
         background_rgb=args.background,
         alt_map=_parse_alt_map(getattr(args, "alt_map", None)),
         outline_map=_parse_outline_map(getattr(args, "outline_map", None)),
-        scaffold=bool(getattr(args, "scaffold", False)),
+        scaffold=scaffold,
     )
 
 
-def _add_fix_flags(p):
+def _add_fix_flags(p, scaffold_default=True):
     p.add_argument("--language", default="en-US", help="default language code (default en-US)")
     p.add_argument("--background", default="FFFFFF", help="assumed background RGB for contrast math")
     p.add_argument("--alt-map", help="deterministic alt text: 'page:ImageName=text' comma-separated")
     p.add_argument("--outline-map", help="deterministic outline: 'level=title:page' comma-separated")
-    p.add_argument("--scaffold", action="store_true",
+    # 0.3.0: `--scaffold` / `--no-scaffold` pair.
+    #   - fix / remediate: ON by default (scaffold on; --no-scaffold opts out).
+    #   - audit: OFF by default (scaffold_default=False) so auditing an untagged
+    #     doc reports the same fixable flags as pre-0.3.0 (read-only, unchanged).
+    # `--scaffold` remains valid in all cases (back-compat).
+    p.add_argument("--scaffold", action=argparse.BooleanOptionalAction,
+                   default=scaffold_default,
                    help="deterministic tag-tree scaffolding for untagged documents "
-                        "(opt-in; off by default)")
+                        "(on by default for fix/remediate; off by default for audit; "
+                        "pass --no-scaffold to keep the manual behavior)")
 
 
 def cmd_audit(args) -> int:
     if getattr(args, "batch", None):
         return _cmd_audit_batch(args)
-    ctx = _ctx(args, args.file)
+    ctx = _ctx(args, args.file, scaffold=args.scaffold)
     try:
         result = audit_file(args.file, ctx)
     except FileNotFoundError as e:
@@ -135,7 +142,7 @@ def _cmd_audit_batch(args) -> int:
         print(f"error: no .pdf files in {args.batch}", file=sys.stderr)
         return 2
     for p in files:
-        pctx = _ctx(args, p.name)
+        pctx = _ctx(args, p.name, scaffold=False)
         try:
             result = audit_file(p, pctx)
         except Exception as e:
@@ -160,7 +167,7 @@ def _cmd_audit_batch(args) -> int:
 
 
 def cmd_remediate(args) -> int:
-    ctx = _ctx(args, args.file)
+    ctx = _ctx(args, args.file, scaffold=args.scaffold)
     try:
         rr = remediate(args.file, args.findings, args.out, ctx)
     except FileNotFoundError as e:
@@ -186,7 +193,7 @@ def cmd_fix(args) -> int:
     if not args.file:
         print("error: FILE required (or use --batch DIR)", file=sys.stderr)
         return 2
-    ctx = _ctx(args, args.file)
+    ctx = _ctx(args, args.file, scaffold=args.scaffold)
     out = args.out or str(Path(args.file).with_name(Path(args.file).name + ".fixed.pdf"))
     fr = fix_one(args.file, out, ctx)
     if fr["status"] == "error":
@@ -232,7 +239,7 @@ def _cmd_fix_batch(args) -> int:
     if getattr(args, "report", None):
         print("warning: --report is not supported in batch mode; "
               "use --json (one aggregated file)", file=sys.stderr)
-    ctx = _ctx(args, "")
+    ctx = _ctx(args, "", scaffold=args.scaffold)
     try:
         res = fix_batch(args.batch, ctx)
     except NotADirectoryError as e:
@@ -279,7 +286,7 @@ def main(argv=None) -> int:
     a.add_argument("--batch", help="audit every PDF in a directory (non-recursive)")
     a.add_argument("--json", help="write findings JSON")
     a.add_argument("--report", help="write markdown report")
-    _add_fix_flags(a)
+    _add_fix_flags(a, scaffold_default=False)
     a.add_argument("--enrich", action="store_true",
                    help="fetch normative text live from a locally installed wcag-guidelines-mcp "
                         "(default: use the bundled offline cache)")
