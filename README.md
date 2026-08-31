@@ -136,6 +136,19 @@ Severity order: critical → serious (blocking) → moderate → minor. The audi
 
 `examples/` holds a real-world recipe document (`No Knead Bread-print.pdf`) used to reproduce an original manual audit run end-to-end; `examples/*.fixed.pdf` are regenerable outputs of `fix` (not committed).
 
+## Changelog
+
+### 0.2.0
+
+- **Tag-tree scaffolding** (`scaffold.py`): opt-in `--scaffold` flag on `fix` builds a deterministic tag tree from an untagged document's own content stream — BT/ET text units, PyMuPDF-matched Alt text, font-size-tier H1–H6/P roles, BDC/EMC associations, `StructTreeRoot` + `/MarkInfo /Marked`. The bread sample goes 5 findings FAIL → 0 findings PASS.
+- **Test suite**: characterization tests with programmatically built, committed PDF fixtures (`tests/make_fixtures.py`, `tests/fixtures/`); 30 tests.
+- **CI**: GitHub Actions matrix (py 3.10–3.13) + CLI smoke test on every PR.
+- **Rule fixes**: untagged documents report a single 1.3.1 finding (was two); `outline-missing` now reports an honest `fixable` flag (false when no headings and no `--outline-map`).
+
+### 0.1.0
+
+- Baseline: `audit`, `remediate`, `fix` (+`--batch`), `rules`; 12 rules; `--json`/`--report`/`--enrich` outputs; alt-map/outline-map knobs; exit codes 0/1/2.
+
 ## License
 
 MIT
