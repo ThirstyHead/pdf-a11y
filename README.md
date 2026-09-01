@@ -114,6 +114,7 @@ Downstream fixes then run unmodified: the document title comes from the first H1
 | `color-contrast` | 1.4.3 | moderate | no — advisory (needs human rendering context) |
 | `pdf-encrypted` | 1.3.1 | moderate | no — manual (unlock the file) |
 | `reading-order` | 1.3.1 | moderate | no — advisory (untagged docs only; re-author the content stream). Tagged docs get reading order from the structure tree. |
+| `text-spacing` | 1.4.12 | moderate | no — advisory (reports cramped line/word/letter spacing below conservative bounds; a layout decision) |
 | `link-text-vague` | 2.4.4 | moderate | no — manual (link purpose is human content) |
 | `display-doctitle-off` | 2.4.2 | minor | yes — `/ViewerPreferences /DisplayDocTitle` true |
 | `decorative-undeclared` | 1.1.1 | minor | yes — marks known-decorative images |

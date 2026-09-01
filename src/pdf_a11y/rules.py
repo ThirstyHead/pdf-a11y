@@ -25,6 +25,7 @@ from .contrast import contrast_ratio, hex_to_rgb
 from .docmodel import DocModel, key, member, new_dict, norm_name
 from .findings import Finding
 from .readingorder import reading_order_report
+from .spacing import spacing_report
 
 LANG_RE = re.compile(r"^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})?$")
 BAD_LINK_TEXT = re.compile(
@@ -56,6 +57,14 @@ class AuditContext:
     # reading-order (SC 1.3.1) max tolerated stream/visual inversion count
     # before the reading-order rule fires (1 = one adjacent swap ok)
     reading_order_tolerance: int = 1
+    # text-spacing (SC 1.4.12) conservative *lower* bounds: a page is flagged
+    # when its minimum observed spacing falls below the matching bound. These
+    # are far below the WCAG 1.4.12 override targets (1.5x / 0.26em / 0.12em)
+    # because those are user-settable targets, not as-rendered minimums; the
+    # bounds only catch genuinely cramped rendering (see spacing.py).
+    text_spacing_line_min: float = 1.0
+    text_spacing_word_min: float = 0.08
+    text_spacing_letter_min: float = -0.12
 
 
 # ---------------------------------------------------------------------------
@@ -647,6 +656,73 @@ class ReadingOrder:
         return False
 
 
+class TextSpacing:
+    """SC 1.4.12: text must not be rendered so tightly that it is hard to read.
+
+    WCAG 1.4.12 is an *override* criterion — the user must be able to *set*
+    line height to 1.5x, word spacing to 0.26em (0.12em CJK), and letter
+    spacing to 0.05em without loss of content. Those are targets the user can
+    reach, NOT as-rendered minimums: virtually all normal text renders with
+    line height ~1.2-1.5x and word spacing ~0.2em, so a literal "flag if below
+    WCAG value" rule would flag every ordinary document (and every committed
+    fixture).
+
+    This rule therefore measures the *minimum* observed line height (baseline
+    gap / font size), word spacing (inter-word gap / font size, em), and letter
+    spacing (intra-word char gap / font size, em) per page via
+    :mod:`pdf_a11y.spacing`, and emits a finding when a minimum falls below a
+    conservative lower bound (``AuditContext.text_spacing_*``; defaults
+    line<1.0x, word<0.08em, letter<-0.12em). It reports the offending text so
+    the issue is locatable. Advisory (fixable=False): spacing remediation is a
+    layout decision. Deterministic geometry, no network/AI.
+    """
+
+    rule_id = "text-spacing"
+    sc = "1.4.12"
+    severity = "moderate"
+
+    def check(self, dm, ctx):
+        line_min = getattr(ctx, "text_spacing_line_min", 1.0)
+        word_min = getattr(ctx, "text_spacing_word_min", 0.08)
+        letter_min = getattr(ctx, "text_spacing_letter_min", -0.12)
+        try:
+            pages = spacing_report(str(dm.path))
+        except Exception:
+            # A PDF PyMuPDF cannot read should not break the whole audit.
+            return []
+        out = []
+        for pg in pages:
+            issues = []
+            if pg.min_line_height is not None and pg.min_line_height < line_min:
+                issues.append(
+                    f"line height {pg.min_line_height:.2f}x < {line_min}x"
+                    + (f" at '{pg.line_height_text[:40]}'" if pg.line_height_text else ""))
+            if pg.min_word_gap is not None and pg.min_word_gap < word_min:
+                issues.append(
+                    f"word spacing {pg.min_word_gap:.2f}em < {word_min}em"
+                    + (f" at '{pg.word_gap_text[:40]}'" if pg.word_gap_text else ""))
+            if pg.min_letter_gap is not None and pg.min_letter_gap < letter_min:
+                issues.append(
+                    f"letter spacing {pg.min_letter_gap:.2f}em < {letter_min}em"
+                    + (f" at '{pg.letter_gap_text[:40]}'" if pg.letter_gap_text else ""))
+            if issues:
+                out.append(Finding(
+                    self.rule_id, self.sc, self.severity,
+                    f"page[{pg.page_no}]",
+                    f"Text on page {pg.page_no + 1} is rendered with cramped "
+                    f"spacing: {'; '.join(issues)}. Users cannot rely on the "
+                    "document's own spacing being readable (WCAG 1.4.12).",
+                    "; ".join(issues),
+                    False,
+                    "Increase line height / word / letter spacing in the source "
+                    "layout, or ensure the content survives the user applying "
+                    "WCAG 1.4.12 overrides (manual layout decision)."))
+        return out
+
+    def fix(self, dm, finding, ctx):
+        return False
+
+
 RULES = [
     LanguageMissing(),
     TitleMissing(),
@@ -661,6 +737,7 @@ RULES = [
     EncryptedPdf(),
     ColorContrast(),
     ReadingOrder(),
+    TextSpacing(),
 ]
 
 RULES_BY_ID = {r.rule_id: r for r in RULES}
