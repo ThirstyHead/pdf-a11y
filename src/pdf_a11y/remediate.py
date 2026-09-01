@@ -22,6 +22,7 @@ APPLY_ORDER = [
     "UnmarkedPdf",            # declare tagging (only when a tree already exists)
     "ImageAltMissing",
     "DecorativeImageUndeclared",
+    "MediaNoAlt",
     "OutlineMissing",
     "TitleMissing",           # after structure/outline so the first H1 wins
     "LanguageMissing",
@@ -40,6 +41,7 @@ _RULE_ID_TO_CLASS = {
     "image-alt-missing": "ImageAltMissing",
     "image-alt-tiny": "ImageAltMissing",
     "decorative-undeclared": "DecorativeImageUndeclared",
+    "media-no-alt": "MediaNoAlt",
     "outline-missing": "OutlineMissing",
     "link-text-vague": "BadLinkText",
     "pdf-encrypted": "EncryptedPdf",

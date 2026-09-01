@@ -326,6 +326,72 @@ class DocModel:
         a = key(img_obj, "Alt")
         return str(a).strip() if a is not None else None
 
+    def media_items(self):
+        """Time-based media objects (SC 1.2.x) needing caption/transcript
+        alternatives. Returns (kind, location, obj) tuples:
+
+          * ``("form-xobject", f"page[{pi}] /{name}", obj)`` — page Form
+            XObjects, resolved through the same Resources-inheritance chain
+            as images (page-local names win over ancestors). Form XObjects
+            are the standard carrier for vector/timed media; Image XObjects
+            are NOT included (they are 1.1.1 territory).
+          * ``("screen-annot", f"page[{pi}] screen annotation {title!r}", obj)``
+            — /Screen annotations (the PDF subtype for embedded AV).
+          * ``("embedded-file", "embedded file '{F}'", spec)`` — catalog
+            /EmbeddedFiles names tree entries (media attached as file specs).
+
+        Each object's alternative text lives in its own ``/Alt``; a Screen
+        annotation's /T is a label, not an alternative. Deterministic order:
+        pages in order, forms then annots per page, embedded files last.
+        """
+        out = []
+        for pi, page in enumerate(self.pages):
+            # Form XObjects with inheritance (page-local wins over ancestors)
+            chain = []
+            node = page
+            while node is not None:
+                res = key(node, "Resources")
+                if res is not None:
+                    chain.append(res)
+                node = key(node, "Parent")
+            seen = set()
+            for res in reversed(chain):
+                xobjs = key(res, "XObject")
+                if xobjs is None:
+                    continue
+                for nm, obj in xobjs.items():
+                    name = norm_name(nm)
+                    if name in seen:
+                        continue
+                    sub = str(key(obj, "Subtype"))
+                    if sub == "/Image":
+                        seen.add(name)  # media rule: images are 1.1.1
+                        continue
+                    if sub == "/Form":
+                        seen.add(name)
+                        out.append(("form-xobject", f"page[{pi}] /{name}", obj))
+            # Screen annotations
+            annots = key(page, "Annots")
+            if annots is not None:
+                for ann in annots:
+                    if str(key(ann, "Subtype")) != "/Screen":
+                        continue
+                    t = key(ann, "T")
+                    title = str(t).strip() if t is not None else "?"
+                    out.append(("screen-annot",
+                                f"page[{pi}] screen annotation {title!r}", ann))
+        # Catalog embedded files (Names tree: [name, spec, name, spec, ...])
+        ef = key(self.catalog, "EmbeddedFiles")
+        if ef is not None:
+            names = key(ef, "Names")
+            if names is not None:
+                for i in range(0, len(names) - 1, 2):
+                    spec = names[i + 1]
+                    f = key(spec, "F")
+                    label = str(f).strip() if f is not None else "?"
+                    out.append(("embedded-file", f"embedded file '{label}'", spec))
+        return out
+
     # -- writing helpers (remediation) ----------------------------------------
     def _meta_ro(self):
         m = self.doc.open_metadata(set_pikepdf_as_editor=False)

@@ -11,7 +11,8 @@ Scope (per local a11y wiki, pdf-a11y-workflow):
   - 2.x keyboard/interaction criteria are largely N/A for static PDFs;
     2.4.1 (bypass blocks) and 2.4.4 (link purpose) are applied to the
     document outline and link annotations, which ARE the PDF equivalents.
-  - 1.2.x media alternatives are advisory (no auto-captioning).
+  - 1.2.x media alternatives: media-no-alt detects media objects lacking
+    /Alt; the caption/transcript is human content (no auto-captioning).
   - 3.1.1 / 3.2.x / 3.3.x are out of scope for static document content.
 """
 import re
@@ -65,6 +66,11 @@ class AuditContext:
     text_spacing_line_min: float = 1.0
     text_spacing_word_min: float = 0.08
     text_spacing_letter_min: float = -0.12
+    # opt-in: when true, media-no-alt findings become fixable and the fix
+    # writes a machine-clear [MEDIA-ALT-REQUIRED: ...] placeholder /Alt on
+    # the media object (transcript/caption itself is still manual — no
+    # auto-captioning, per the roadmap non-goals).
+    media_placeholder: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -723,6 +729,81 @@ class TextSpacing:
         return False
 
 
+class MediaNoAlt:
+    """SC 1.2.1: time-based media (video/audio) must have alternatives.
+
+    Detects the deterministic carriers of embedded media in a PDF — form
+    XObjects, /Screen annotations, and catalog /EmbeddedFiles — and flags
+    each one that has no ``/Alt`` alternative text. The alternative itself
+    (caption / transcript) is human content, so the default finding is
+    manual (fixable=False). With ``--media-placeholder`` (AuditContext
+    ``media_placeholder=True``) the finding becomes fixable and the fix
+    writes a tracked ``[MEDIA-ALT-REQUIRED: ...]`` placeholder /Alt so the
+    gap stays machine-visible — the same tracking pattern the image alt
+    rule uses. No auto-captioning (roadmap non-goal).
+
+    Serious/blocking: a screen-reader user gets no alternative at all for
+    the media, so it blocks a PDF/UA pass — consistent with the
+    image-alt-missing treatment of 1.1.1 non-text content.
+    """
+
+    rule_id = "media-no-alt"
+    sc = "1.2.1"
+    severity = "serious"
+
+    KIND_LABEL = {
+        "form-xobject": "form XObject",
+        "screen-annot": "screen annotation",
+        "embedded-file": "embedded file",
+    }
+
+    def check(self, dm, ctx):
+        out = []
+        for kind, loc, obj in dm.media_items():
+            alt = key(obj, "Alt")
+            if alt is not None and str(alt).strip():
+                continue
+            label = self.KIND_LABEL.get(kind, kind)
+            fixable = bool(getattr(ctx, "media_placeholder", False))
+            out.append(Finding(self.rule_id, self.sc, self.severity, loc,
+                               f"Time-based media ({label}) has no /Alt "
+                               "alternative (caption or transcript); "
+                               "assistive technology users cannot access "
+                               "its content.",
+                               f"kind={kind}", fixable,
+                               "Provide a caption file or transcript "
+                               "(manual content). With --media-placeholder a "
+                               "tracked [MEDIA-ALT-REQUIRED: ...] marker is "
+                               "inserted so the gap stays visible."))
+        return out
+
+    def fix(self, dm, finding, ctx):
+        if not getattr(ctx, "media_placeholder", False):
+            return False
+        m = re.match(r"^page\[(\d+)\]\s+(\S.*)$", finding.location)
+        if m:
+            pi = int(m.group(1))
+            rest = m.group(2)
+            kind = "screen-annot" if rest.startswith("screen annotation") \
+                else "form-xobject"
+            for k, loc, obj in dm.media_items():
+                if k == kind and loc == finding.location:
+                    obj["/Alt"] = (f"[MEDIA-ALT-REQUIRED: {kind} "
+                                   f"{rest} on page {pi + 1} - insert a "
+                                   "human-written caption/transcript]")
+                    return True
+            return False
+        if finding.location.startswith("embedded file"):
+            for k, loc, obj in dm.media_items():
+                if k == "embedded-file" and loc == finding.location:
+                    obj["/Alt"] = (f"[MEDIA-ALT-REQUIRED: embedded file "
+                                   f"{loc} - insert a human-written "
+                                   "caption/transcript]")
+                    return True
+            return False
+        return False
+
+
 RULES = [
     LanguageMissing(),
     TitleMissing(),
@@ -732,6 +813,7 @@ RULES = [
     WeakTagTree(),
     ImageAltMissing(),
     DecorativeImageUndeclared(),
+    MediaNoAlt(),
     OutlineMissing(),
     BadLinkText(),
     EncryptedPdf(),
