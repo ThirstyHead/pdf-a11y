@@ -133,6 +133,7 @@ Severity order: critical → serious (blocking) → moderate → minor. The audi
 
 - WCAG 2.1 AA with a PDF/UA-1 target. 2.x keyboard/interaction criteria are largely N/A for static PDFs; 2.4.1 (bypass blocks) and 2.4.4 (link purpose) are applied to the document outline and link annotations, which are the PDF equivalents. SC 2.4.2 (Page Titled) is applied by convention to document title metadata.
 - 1.2.x media alternatives: `media-no-alt` flags time-based media (form XObjects, /Screen annotations, embedded files) without an /Alt alternative; the caption/transcript itself is human content (no auto-captioning).
+- OCR of scanned (text-less) pages is opt-in via `fix --ocr` and requires the `ocr` extra plus `tesseract`; when absent it degrades gracefully and marks output OCR-derived.
 - 3.1.1 / 3.2.x / 3.3.x are out of scope for static document content.
 - Contrast assumes a flat background (`--background`); page-level backgrounds/gradients are out of scope.
 
@@ -141,6 +142,10 @@ Severity order: critical → serious (blocking) → moderate → minor. The audi
 `examples/` holds a real-world recipe document (`No Knead Bread-print.pdf`) used to reproduce an original manual audit run end-to-end; `examples/*.fixed.pdf` are regenerable outputs of `fix` (not committed).
 
 ## Changelog
+
+### 0.4.0 (in progress)
+
+- OCR of scanned pages (opt-in `fix --ocr`, pluggable, graceful).
 
 ### 0.3.0
 
