@@ -40,6 +40,10 @@ RULE_NOTES = {
                       "or meaningful (give it /Alt).",
     "decorative-undeclared": "If the image is decorative, declare it with /Type /Metadata "
                              "so AT can skip it.",
+    "media-no-alt": "Provide a caption file or transcript for the media (manual "
+                    "content). With --media-placeholder a tracked "
+                    "[MEDIA-ALT-REQUIRED: ...] /Alt marker is inserted so the "
+                    "gap stays machine-visible; no auto-captioning.",
     "outline-missing": "Build the outline from H1/H2 headings (--outline-map) or the tag "
                        "tree (deterministic when headings exist).",
     "link-text-vague": "Rename the link to describe its purpose (manual content).",

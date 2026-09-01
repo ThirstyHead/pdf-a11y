@@ -108,6 +108,7 @@ Downstream fixes then run unmodified: the document title comes from the first H1
 | `pdf-unmarked` | 1.3.1 | serious | yes — sets `/MarkInfo /Marked` |
 | `tag-tree-missing` | 1.3.1 | serious | no — manual (a structure tree requires content-level decisions) |
 | `tag-tree-weak` | 1.3.1 | serious | no — manual (repair the tree) |
+| `media-no-alt` | 1.2.1 | serious | placeholder only — caption/transcript is human content (with `--media-placeholder`, writes a tracked `[MEDIA-ALT-REQUIRED: ...]` `/Alt`) |
 | `language-missing` | 3.1.1 | moderate | yes — catalog `/Lang` (from `--language`) |
 | `title-missing` | 2.4.2 (by convention) | moderate | yes — document title from first heading or filename stem |
 | `outline-missing` | 2.4.1 | moderate | yes, when derivable (headings in the tag tree, or `--outline-map`) |
@@ -131,7 +132,7 @@ Severity order: critical → serious (blocking) → moderate → minor. The audi
 ## Scope
 
 - WCAG 2.1 AA with a PDF/UA-1 target. 2.x keyboard/interaction criteria are largely N/A for static PDFs; 2.4.1 (bypass blocks) and 2.4.4 (link purpose) are applied to the document outline and link annotations, which are the PDF equivalents. SC 2.4.2 (Page Titled) is applied by convention to document title metadata.
-- 1.2.x media alternatives are advisory (no auto-captioning).
+- 1.2.x media alternatives: `media-no-alt` flags time-based media (form XObjects, /Screen annotations, embedded files) without an /Alt alternative; the caption/transcript itself is human content (no auto-captioning).
 - 3.1.1 / 3.2.x / 3.3.x are out of scope for static document content.
 - Contrast assumes a flat background (`--background`); page-level backgrounds/gradients are out of scope.
 

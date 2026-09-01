@@ -75,6 +75,7 @@ def _ctx(args, source_name, scaffold: bool) -> AuditContext:
         alt_map=_parse_alt_map(getattr(args, "alt_map", None)),
         outline_map=_parse_outline_map(getattr(args, "outline_map", None)),
         scaffold=scaffold,
+        media_placeholder=getattr(args, "media_placeholder", False),
     )
 
 
@@ -83,6 +84,10 @@ def _add_fix_flags(p, scaffold_default=True):
     p.add_argument("--background", default="FFFFFF", help="assumed background RGB for contrast math")
     p.add_argument("--alt-map", help="deterministic alt text: 'page:ImageName=text' comma-separated")
     p.add_argument("--outline-map", help="deterministic outline: 'level=title:page' comma-separated")
+    p.add_argument("--media-placeholder", action="store_true",
+                   help="make media-no-alt findings fixable by writing a tracked "
+                        "[MEDIA-ALT-REQUIRED: ...] /Alt placeholder (the caption/"
+                        "transcript itself stays manual; no auto-captioning)")
     # 0.3.0: `--scaffold` / `--no-scaffold` pair.
     #   - fix / remediate: ON by default (scaffold on; --no-scaffold opts out).
     #   - audit: OFF by default (scaffold_default=False) so auditing an untagged
