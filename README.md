@@ -142,6 +142,14 @@ Severity order: critical → serious (blocking) → moderate → minor. The audi
 
 ## Changelog
 
+### 0.3.0
+
+- **Scaffold-by-default** (behavior change): `fix` and `remediate` now build a deterministic tag tree for untagged documents by default — the 5→0 FAIL→PASS remediation is the out-of-the-box path. `--no-scaffold` restores the pre-0.3.0 manual behavior; `audit` remains scaffold-off (read-only, fixable flags unchanged).
+- **Reading order** (`readingorder.py`): new `reading-order` rule (SC 1.3.1, moderate, advisory) for untagged docs — replaces the self-referential "content-stream order" assumption with a geometric check: PyMuPDF draw order vs column-aware visual order, divergence as inversion count, fires beyond a tolerance (default 1 adjacent swap).
+- **Text spacing** (`spacing.py`): new `text-spacing` rule (SC 1.4.12, moderate, advisory) flags genuinely cramped rendering — per-page min line height (baseline gap / font size), word and letter spacing in em. Thresholds are conservative lower bounds; WCAG 1.4.12 values are user override targets, so normal text is never flagged.
+- **Media alternatives** (`docmodel.py` `media_items`): new `media-no-alt` rule (SC 1.2.1, serious, blocking by default, advisory/manual unless `--media-placeholder`) detects time-based media lacking `/Alt` — form XObjects (with `/Pages`-Resources inheritance, images excluded), `/Screen` annotations (`/T` is a label, not an alternative), and catalog `/EmbeddedFiles` names-tree entries. `--media-placeholder` makes findings fixable by writing a tracked `[MEDIA-ALT-REQUIRED: ...]` `/Alt` placeholder. No auto-captioning.
+- **Rules**: registry now 15 rules (12 in 0.2.0). **Tests**: 92 (30 in 0.2.0), including per-fixture characterization that all six committed fixtures stay clean.
+
 ### 0.2.0
 
 - **Tag-tree scaffolding** (`scaffold.py`): opt-in `--scaffold` flag on `fix` builds a deterministic tag tree from an untagged document's own content stream — BT/ET text units, PyMuPDF-matched Alt text, font-size-tier H1–H6/P roles, BDC/EMC associations, `StructTreeRoot` + `/MarkInfo /Marked`. The bread sample goes 5 findings FAIL → 0 findings PASS.
