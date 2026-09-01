@@ -24,6 +24,7 @@ import pikepdf
 from .contrast import contrast_ratio, hex_to_rgb
 from .docmodel import DocModel, key, member, new_dict, norm_name
 from .findings import Finding
+from .readingorder import reading_order_report
 
 LANG_RE = re.compile(r"^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})?$")
 BAD_LINK_TEXT = re.compile(
@@ -52,6 +53,9 @@ class AuditContext:
     # opt-in deterministic tag-tree scaffolding for untagged documents
     # (Phase 5; default off so default fix behavior is untouched)
     scaffold: bool = False
+    # reading-order (SC 1.3.1) max tolerated stream/visual inversion count
+    # before the reading-order rule fires (1 = one adjacent swap ok)
+    reading_order_tolerance: int = 1
 
 
 # ---------------------------------------------------------------------------
@@ -581,6 +585,68 @@ class ColorContrast:
         return False
 
 
+class ReadingOrder:
+    """SC 1.3.1: the content-stream (extraction) order must match the visual
+    reading order so assistive technology reads the text in the order a sighted
+    reader would see it.
+
+    The old stream-order *assumption* never verified this; it just assumed the
+    content stream was authored in reading order. This rule replaces that
+    assumption with a geometric check: it measures how many pairs of text
+    lines appear in the opposite relative order in the content stream vs the
+    column-aware visual order (an inversion count). A divergence above the
+    configured tolerance (default 1, i.e. one adjacent swap) is a finding.
+
+    Deterministic: pure geometry over PyMuPDF's text dict, no network/AI, and
+    it does not depend on tagging (extraction order matters whether or not the
+    document is tagged). No deterministic fix is offered (re-authoring the
+    content stream is a manual decision), so findings are advisory and do not
+    block on their own.
+    """
+
+    rule_id = "reading-order"
+    sc = "1.3.1"
+    severity = "moderate"
+
+    def check(self, dm, ctx):
+        # Tagged documents get their reading order from the structure tree
+        # (Steps 6/7 validate that), not the content stream — so a
+        # content-stream geometry check is the wrong oracle for them and would
+        # false-positive (e.g. on fixtures whose stream is intentionally
+        # scrambled but correctly tagged). Only untagged documents, where the
+        # content stream *is* the extraction order, are checked here.
+        if dm.struct_tree() is not None:
+            return []
+        tol = getattr(ctx, "reading_order_tolerance", 1)
+        try:
+            pages = reading_order_report(str(dm.path), tolerance=tol)
+        except Exception:
+            # A PDF PyMuPDF cannot read should not break the whole audit; the
+            # geometric check is best-effort.
+            return []
+        out = []
+        for pg in pages:
+            if pg.n_lines < 2:
+                continue
+            if not pg.streams_ok:
+                out.append(Finding(
+                    self.rule_id, self.sc, self.severity,
+                    f"page[{pg.page_no}]",
+                    f"Content-stream text order diverges from the visual reading "
+                    f"order on page {pg.page_no + 1} ({pg.inversions} inverted "
+                    f"line pair(s); tolerance {tol}). Screen readers will read the "
+                    "text out of visual order.",
+                    f"inversions={pg.inversions}, tolerance={tol}, "
+                    f"lines={pg.n_lines}",
+                    False,
+                    "Re-author the content stream so text is written in visual "
+                    "reading order (manual)."))
+        return out
+
+    def fix(self, dm, finding, ctx):
+        return False
+
+
 RULES = [
     LanguageMissing(),
     TitleMissing(),
@@ -594,6 +660,7 @@ RULES = [
     BadLinkText(),
     EncryptedPdf(),
     ColorContrast(),
+    ReadingOrder(),
 ]
 
 RULES_BY_ID = {r.rule_id: r for r in RULES}
