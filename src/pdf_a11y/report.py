@@ -45,6 +45,9 @@ RULE_NOTES = {
     "pdf-encrypted": "Save an unencrypted copy for distribution (manual decision).",
     "color-contrast": "Choose text colors meeting 4.5:1 (3:1 large text) against the "
                       "assumed page background.",
+    "reading-order": "Re-author the content stream so text is written in visual reading "
+                     "order (advisory; reordering is invasive). For tagged documents the "
+                     "structure tree defines reading order and this rule does not apply.",
 }
 
 
