@@ -14,6 +14,7 @@ SC_NAMES = {
     "1.1.1": ("Non-text Content", "A", "1 Perceivable / 1.1 Text Alternatives"),
     "1.3.1": ("Info and Relationships", "A", "1 Perceivable / 1.3 Adaptable"),
     "1.4.3": ("Contrast (Minimum)", "AA", "1 Perceivable / 1.4 Distinguishable"),
+    "1.4.12": ("Text Spacing", "AA", "1 Perceivable / 1.4 Distinguishable"),
     "2.4.1": ("Bypass Blocks", "A", "2 Operable / 2.4 Navigable (applied to the PDF outline)"),
     "2.4.2": ("Page Titled", "A", "2 Operable / 2.4 Navigable (applied by convention to document title metadata)"),
     "2.4.4": ("Link Purpose (In Context)", "A", "2 Operable / 2.4 Navigable (applied to link annotation names)"),
@@ -48,6 +49,11 @@ RULE_NOTES = {
     "reading-order": "Re-author the content stream so text is written in visual reading "
                      "order (advisory; reordering is invasive). For tagged documents the "
                      "structure tree defines reading order and this rule does not apply.",
+    "text-spacing": "Increase line height / word / letter spacing in the source layout so "
+                    "the rendered text is comfortable to read. WCAG 1.4.12 is an override "
+                    "criterion (the user must be able to set 1.5x / 0.26em / 0.12em); this "
+                    "rule flags only genuinely cramped rendering, below conservative "
+                    "lower bounds (advisory; a layout decision).",
 }
 
 
