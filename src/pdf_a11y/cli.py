@@ -76,6 +76,8 @@ def _ctx(args, source_name, scaffold: bool) -> AuditContext:
         outline_map=_parse_outline_map(getattr(args, "outline_map", None)),
         scaffold=scaffold,
         media_placeholder=getattr(args, "media_placeholder", False),
+        ocr=getattr(args, "ocr", False),
+        repair=getattr(args, "repair", False),
     )
 
 
@@ -88,6 +90,9 @@ def _add_fix_flags(p, scaffold_default=True):
                    help="make media-no-alt findings fixable by writing a tracked "
                         "[MEDIA-ALT-REQUIRED: ...] /Alt placeholder (the caption/"
                         "transcript itself stays manual; no auto-captioning)")
+    p.add_argument("--ocr", action="store_true",
+                   help="OCR text-less (scanned) pages before fixing "
+                        "(requires the `ocr` extra + tesseract; degrades gracefully)")
     # 0.3.0: `--scaffold` / `--no-scaffold` pair.
     #   - fix / remediate: ON by default (scaffold on; --no-scaffold opts out).
     #   - audit: OFF by default (scaffold_default=False) so auditing an untagged
@@ -198,9 +203,15 @@ def cmd_fix(args) -> int:
     if not args.file:
         print("error: FILE required (or use --batch DIR)", file=sys.stderr)
         return 2
-    ctx = _ctx(args, args.file, scaffold=args.scaffold)
-    out = args.out or str(Path(args.file).with_name(Path(args.file).name + ".fixed.pdf"))
-    fr = fix_one(args.file, out, ctx)
+    src = args.file
+    if getattr(args, "ocr", False):
+        from .ocr import ocr_prepare
+        src, _n, note = ocr_prepare(args.file)
+        print(f"[ocr] {note}")
+    ctx = _ctx(args, src, scaffold=args.scaffold)
+    out = args.out or str(Path(src).with_name(Path(src).name + ".fixed.pdf"))
+    fr = fix_one(src, out, ctx)
+    fr["ocr"] = bool(getattr(args, "ocr", False))
     if fr["status"] == "error":
         print(f"error: {fr['error']}", file=sys.stderr)
         return 2
