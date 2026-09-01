@@ -20,6 +20,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7"]
+ocr = ["pytesseract>=0.3", "Pillow>=10"]
+gui = ["PySide6>=6.5"]
 
 [project.scripts]
 pdf-a11y = "pdf_a11y.cli:main"

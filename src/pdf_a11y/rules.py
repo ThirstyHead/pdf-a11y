@@ -71,6 +71,12 @@ class AuditContext:
     # the media object (transcript/caption itself is still manual — no
     # auto-captioning, per the roadmap non-goals).
     media_placeholder: bool = False
+    # opt-in: OCR text-less (scanned) pages before audit/fix (Phase A).
+    # When True and a backend is present, `fix` runs an OCR pre-pass; when the
+    # backend is absent it degrades gracefully (no traceback) and notes it.
+    ocr: bool = False
+    # opt-in: repair already-tagged-but-weak trees (Phase B). Implies scaffold.
+    repair: bool = False
 
 
 # ---------------------------------------------------------------------------

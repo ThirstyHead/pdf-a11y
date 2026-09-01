@@ -67,6 +67,9 @@ CONTENT_VIOLATIONS = (
     b"Q\n"
 )
 
+# scan: a page that is ONLY an image (no BT/Tj text) -> 0 extractable text (a "scan").
+CONTENT_SCAN = b"q\n120 120 0 0 72 520 /Im1 Do\nQ\n"
+
 
 def _base_doc(content, with_image=True):
     """One-page PDF with Helvetica text (and optionally /Im1). Not saved."""
@@ -239,6 +242,15 @@ def make_tagged_nooutline():
     tmp.unlink()
 
 
+def make_scan():
+    """Image-only page (no extractable text): the OCR test target.
+    Oracle: audit reports image-alt + tagging findings (OCR is what would help);
+    the fixture is committed so OCR tests are hermetic about file existence."""
+    final = FIX / "scan.pdf"
+    tmp = _base_to_tmp("scan", CONTENT_SCAN)
+    tmp.rename(final)
+
+
 def copy_bread():
     """Real-world sample (subsetted fonts, custom encoding): the hard case."""
     shutil.copy(ROOT / "examples" / "No Knead Bread-print.pdf", FIX / "bread.pdf")
@@ -250,5 +262,6 @@ if __name__ == "__main__":
     make_marked_notree()
     make_tagged_nooutline()
     make_violations()
+    make_scan()
     copy_bread()
     print(f"fixtures written to {FIX}")
