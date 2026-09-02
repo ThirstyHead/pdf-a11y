@@ -251,6 +251,32 @@ def make_scan():
     tmp.rename(final)
 
 
+def make_weak_repairable():
+    """clean.pdf's tree with the Paragraph element's /P removed -> exactly one
+    tag-tree-weak 'orphaned structure element' finding. After --scaffold
+    --repair the orphan is repointed and re-audit is clean.
+    Oracle: audit -> exactly 1 tag-tree-weak finding."""
+    final = FIX / "weak-repairable.pdf"
+    tmp = _base_to_tmp("weak-repairable", CONTENT_MARKED)
+    with DocModel.open(tmp) as dm:
+        dm.set_lang("en")
+        dm.set_title("Weak Repairable Fixture")
+        dm.set_display_doc_title(True)
+        dm.set_marked(True)
+        dm.set_outline([(1, "Big Title", 0)])
+        dm.set_image_alt(0, "Im1", "A square")
+        pdoc = dm.doc
+        root_el = _new_root_el(pdoc)
+        h1 = _make_el(pdoc, "/H1", 1, root_el, alt="Big Title")
+        p = _make_el(pdoc, "/P", 2, root_el)
+        del p[pikepdf.Name("/P")]            # <-- create the orphan
+        fig = _make_el(pdoc, "/Figure", 3, root_el, alt="A square")
+        root_el["/K"] = pikepdf.Array([h1, p, fig])
+        _finalize_root(pdoc, root_el, [1, 2, 3])
+        dm.save(final)
+    tmp.unlink()
+
+
 def copy_bread():
     """Real-world sample (subsetted fonts, custom encoding): the hard case."""
     shutil.copy(ROOT / "examples" / "No Knead Bread-print.pdf", FIX / "bread.pdf")
@@ -263,5 +289,6 @@ if __name__ == "__main__":
     make_tagged_nooutline()
     make_violations()
     make_scan()
+    make_weak_repairable()
     copy_bread()
     print(f"fixtures written to {FIX}")
