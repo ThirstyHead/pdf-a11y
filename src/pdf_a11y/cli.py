@@ -68,6 +68,9 @@ def _parse_outline_map(s):
 
 
 def _ctx(args, source_name, scaffold: bool) -> AuditContext:
+    # repair is a *write* capability: audit stays read-only, so the flag is a
+    # no-op there (mirrors how the scaffold default differs per command).
+    repair = getattr(args, "repair", False) and args.cmd != "audit"
     return AuditContext(
         source_name=source_name,
         default_language=args.language,
@@ -77,7 +80,7 @@ def _ctx(args, source_name, scaffold: bool) -> AuditContext:
         scaffold=scaffold,
         media_placeholder=getattr(args, "media_placeholder", False),
         ocr=getattr(args, "ocr", False),
-        repair=getattr(args, "repair", False),
+        repair=repair,
     )
 
 
