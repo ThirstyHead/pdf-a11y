@@ -603,6 +603,19 @@ class DocModel:
         }))
         self.catalog["/StructTreeRoot"] = str_tree_root
         self.set_marked(True)
+        # PDF/UA requires the XMP document properties on a tagged document,
+        # and the scaffold is what makes an untagged document tagged — so it
+        # emits the metadata block. Producer is a deterministic constant; the
+        # title (if one is already known) is mirrored into XMP. If the
+        # document has no title, TitleMissing's fix sets it afterwards.
+        # Date fields are deliberately not written (determinism).
+        from . import __version__
+        with self.doc.open_metadata(set_pikepdf_as_editor=False) as meta:
+            if not str(meta.get("pdf:Producer") or "").strip():
+                meta["pdf:Producer"] = f"pdf-a11y/{__version__}"
+            t = self.title()
+            if t and not str(meta.get("dc:title") or "").strip():
+                meta["dc:title"] = t
         return n_elements
 
     def save(self, out_path):
