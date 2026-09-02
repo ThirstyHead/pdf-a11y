@@ -126,7 +126,7 @@ Severity order: critical → serious (blocking) → moderate → minor. The audi
 
 - **Same input file + same version → identical findings JSON.** Findings are sorted by severity then location; JSON keys are sorted.
 - **Remediation only mutates a copy.** The source `.pdf` is never touched; output goes to `--out` (default `<file>.fixed.pdf`).
-- **Only deterministic fixes run automatically.** Anything requiring human judgment (real alt text, structure-tree repair, link purpose) is reported as `fixable: false` / skipped, never guessed.
+- **Only deterministic fixes run automatically.** Anything requiring human judgment (real alt text, link purpose) is reported as `fixable: false` / skipped, never guessed. Mechanical tag-tree integrity (orphaned `/P`, `ParentTree`) is repaired deterministically with `fix --repair` (opt-in, implies `--scaffold`); content-level weaknesses it cannot know about are left as findings.
 - **A broken rule cannot kill the audit** — it is captured as an internal finding.
 
 ## Scope
@@ -134,6 +134,7 @@ Severity order: critical → serious (blocking) → moderate → minor. The audi
 - WCAG 2.1 AA with a PDF/UA-1 target. 2.x keyboard/interaction criteria are largely N/A for static PDFs; 2.4.1 (bypass blocks) and 2.4.4 (link purpose) are applied to the document outline and link annotations, which are the PDF equivalents. SC 2.4.2 (Page Titled) is applied by convention to document title metadata.
 - 1.2.x media alternatives: `media-no-alt` flags time-based media (form XObjects, /Screen annotations, embedded files) without an /Alt alternative; the caption/transcript itself is human content (no auto-captioning).
 - OCR of scanned (text-less) pages is opt-in via `fix --ocr` and requires the `ocr` extra plus `tesseract`; when absent it degrades gracefully and marks output OCR-derived.
+- Weak (already-tagged-but-broken) tag trees: `fix --repair` deterministically repairs orphaned structure elements (missing `/P`) and the `ParentTree`, implies `--scaffold`, and is fail-safe — content-level weaknesses (no headings, missing Alt, tables without headers, unbalanced BDC/EMC) are left as honest findings, never guessed. `audit --repair` is a no-op: audit stays read-only.
 - 3.1.1 / 3.2.x / 3.3.x are out of scope for static document content.
 - Contrast assumes a flat background (`--background`); page-level backgrounds/gradients are out of scope.
 
@@ -146,6 +147,7 @@ Severity order: critical → serious (blocking) → moderate → minor. The audi
 ### 0.4.0 (in progress)
 
 - OCR of scanned pages (opt-in `fix --ocr`, pluggable, graceful).
+- Weak-tag-tree repair (opt-in `fix --repair`): orphaned structure elements and `ParentTree` rewritten deterministically; fail-safe on content-level weaknesses (left as findings).
 
 ### 0.3.0
 
