@@ -10,6 +10,7 @@ import fitz
 import pytest
 
 from pdf_a11y import ocr
+from pdf_a11y.ocr import _render_dpi
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -32,6 +33,32 @@ def test_ocr_noop_when_all_pages_have_text(monkeypatch):
     monkeypatch.setattr(ocr, "ocr_available", lambda: True)
     path, n, note = ocr.ocr_prepare(src)
     assert n == 0 and "no OCR needed" in note
+
+
+def _fullbleed_scan(dpi: float):
+    """1-page doc: single full-bleed raster at native `dpi` (no text).
+
+    Raster is built with a PyMuPDF Pixmap (not PIL) so the unit test stays
+    independent of the Pillow PNG encoder (absent in some Pillow builds)."""
+    w, h = int(612 * dpi // 72), int(792 * dpi // 72)
+    doc = fitz.open()
+    p = doc.new_page(width=612, height=792)
+    pm = fitz.Pixmap(fitz.csGRAY, fitz.IRect(0, 0, w, h), 0)
+    pm.clear_with(255)
+    p.insert_image(p.rect, pixmap=pm)
+    return doc[0]
+
+
+def test_render_dpi_never_exceeds_native_raster():
+    """Regression: upsampling a scan's raster softens it and breaks tesseract.
+
+    The render dpi clamps to the full-bleed raster's native density: no
+    upscaling below 300, no pointless 3x render above 300, 300 target when the
+    page has no raster (vector content)."""
+    assert _render_dpi(_fullbleed_scan(72)) == 72      # no 4.2x upscale (the bug)
+    assert _render_dpi(_fullbleed_scan(150)) == 150
+    assert _render_dpi(_fullbleed_scan(600)) == 300    # hi-dpi: capped, not upscaled
+    assert _render_dpi(fitz.open().new_page()) == 300  # no raster -> target
 
 TESS = pytest.mark.skipif(not ocr.ocr_available(),
                           reason="tesseract/pytesseract not installed")

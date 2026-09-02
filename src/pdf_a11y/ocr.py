@@ -34,12 +34,49 @@ def _page_has_text(page) -> bool:
     return bool(page.get_text().strip())
 
 
+def _render_dpi(page, target: float = 300.0) -> int:
+    """Render dpi that never upsamples the page's raster.
+
+    A scanned page is normally one full-bleed image whose pixel density IS the
+    document's native resolution. Rendering above that only interpolates
+    (softens) the image, which measurably degrades OCR accuracy (tesseract 5.5.3
+    misread 'hello' as 'nello' at a 4.17x upsample vs. clean at native). Vector
+    or image-less pages have no raster to protect: render at the target.
+    Deterministic: derived purely from document geometry.
+    """
+    try:
+        rect = page.rect
+        if rect.is_empty or rect.width <= 0 or rect.height <= 0:
+            return int(target)
+        best = None
+        for img in page.get_images(full=True):
+            xref = img[0]
+            pw, ph = img[2], img[3]
+            if pw <= 0 or ph <= 0:
+                continue
+            for r in page.get_image_rects(xref):
+                if r.width <= 0 or r.height <= 0:
+                    continue
+                # Only images that cover (most of) the page set the native dpi.
+                if r.width * r.height < 0.5 * rect.width * rect.height:
+                    continue
+                dpi = 72.0 * pw / r.width
+                if best is None or dpi > best:
+                    best = dpi
+        if best is None:
+            return int(target)
+        return int(round(min(target, max(72.0, best))))
+    except Exception:
+        return int(target)
+
+
 def _ocr_page(page) -> int:
     """Add an invisible text layer to one text-less page. Returns chars inserted."""
     from PIL import Image
     import pytesseract
 
-    pix = page.get_pixmap(dpi=300)
+    dpi = _render_dpi(page)
+    pix = page.get_pixmap(dpi=dpi)
     img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
     d = pytesseract.image_to_data(img, output_type=pytesseract.Output.DICT)
     lines = defaultdict(list)
@@ -48,7 +85,7 @@ def _ocr_page(page) -> int:
             continue
         key = (d["block_num"][i], d["par_num"][i], d["line_num"][i])
         lines[key].append((d["left"][i], d["top"][i], word.strip()))
-    scale = 72.0 / 300.0
+    scale = 72.0 / dpi
     n = 0
     for _, words in sorted(lines.items()):
         words.sort()
