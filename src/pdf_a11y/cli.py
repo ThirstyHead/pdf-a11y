@@ -93,6 +93,10 @@ def _add_fix_flags(p, scaffold_default=True):
     p.add_argument("--ocr", action="store_true",
                    help="OCR text-less (scanned) pages before fixing "
                         "(requires the `ocr` extra + tesseract; degrades gracefully)")
+    p.add_argument("--repair", action="store_true",
+                   help="repair already-tagged-but-weak trees (orphaned /P, "
+                        "ParentTree); implies --scaffold; fail-safe on "
+                        "content-level weaknesses (leaves them as findings)")
     # 0.3.0: `--scaffold` / `--no-scaffold` pair.
     #   - fix / remediate: ON by default (scaffold on; --no-scaffold opts out).
     #   - audit: OFF by default (scaffold_default=False) so auditing an untagged
@@ -208,6 +212,8 @@ def cmd_fix(args) -> int:
         from .ocr import ocr_prepare
         src, _n, note = ocr_prepare(args.file)
         print(f"[ocr] {note}")
+    if getattr(args, "repair", False):
+        args.scaffold = True          # --repair implies --scaffold
     ctx = _ctx(args, src, scaffold=args.scaffold)
     out = args.out or str(Path(src).with_name(Path(src).name + ".fixed.pdf"))
     fr = fix_one(src, out, ctx)
