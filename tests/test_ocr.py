@@ -38,8 +38,8 @@ def test_ocr_noop_when_all_pages_have_text(monkeypatch):
 def _fullbleed_scan(dpi: float):
     """1-page doc: single full-bleed raster at native `dpi` (no text).
 
-    Raster is built with a PyMuPDF Pixmap (not PIL) so the unit test stays
-    independent of the Pillow PNG encoder (absent in some Pillow builds)."""
+    Raster is built with a PyMuPDF Pixmap — the most direct way to make a
+    full-bleed image (and avoids a PIL encode round-trip)."""
     w, h = int(612 * dpi // 72), int(792 * dpi // 72)
     doc = fitz.open()
     p = doc.new_page(width=612, height=792)
