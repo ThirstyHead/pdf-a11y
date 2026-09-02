@@ -192,7 +192,7 @@ def test_image_xobject_not_media(tmp_path):
 
 def test_rule_registered():
     assert "media-no-alt" in RULES_BY_ID
-    assert len(RULES) == 15
+    assert len(RULES) == 18
     r = RULES_BY_ID["media-no-alt"]
     assert r.sc == "1.2.1"
     assert r.severity == "serious"

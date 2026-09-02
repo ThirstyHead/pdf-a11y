@@ -16,6 +16,15 @@ Fixtures (tests/fixtures/):
   tagged-nooutline.pdf - tagged + marked + complete catalog but NO outline;
                       headings exist in the tree, so outline-missing is the
                       only finding and it is derivable (fixable=True)
+  weak-repairable.pdf - clean.pdf's tree with the Paragraph's /P dropped ->
+                      exactly one tag-tree-weak orphan finding; --repair fixes
+  table-noactualtext.pdf - tagged; a table without /ActualText and a row
+                      without TH; expect 2 findings (actualtext-missing
+                      advisory + tag-tree-weak no-TH)
+  table-actualtext.pdf  - tagged; the table carries /ActualText and a TH row;
+                      expect 0 findings
+  xmp-incomplete.pdf    - tagged + complete catalog, XMP lacks pdf:Producer;
+                      expect 1 xmp-docprops-missing finding; fix -> clean
   bread.pdf         - copy of examples/No Knead Bread-print.pdf (real-world sample)
 
 All fixtures are generated with pikepdf only (base-14 Helvetica, no embedding),
@@ -69,6 +78,16 @@ CONTENT_VIOLATIONS = (
 
 # scan: a page that is ONLY an image (no BT/Tj text) -> 0 extractable text (a "scan").
 CONTENT_SCAN = b"q\n120 120 0 0 72 520 /Im1 Do\nQ\n"
+
+# table fixtures: M1=H1, M2=P, M3/M4=two cells (no image on the page).
+CONTENT_TABLE = (
+    b"q\n"
+    b"/M1 BDC BT /F1 18 Tf 72 720 Td (Big Title) Tj ET EMC\n"
+    b"/M2 BDC BT /F1 12 Tf 72 692 Td (Body paragraph text.) Tj ET EMC\n"
+    b"/M3 BDC BT /F1 12 Tf 72 620 Td (Cell one) Tj ET EMC\n"
+    b"/M4 BDC BT /F1 12 Tf 160 620 Td (Cell two) Tj ET EMC\n"
+    b"Q\n"
+)
 
 
 def _base_doc(content, with_image=True):
@@ -187,7 +206,9 @@ def make_marked_notree():
 
 def make_violations():
     """Tagged + marked + complete catalog, but a weak tree: H1->H3 skip and
-    a table row without TH.
+    a table row without TH. The table carries /ActualText so this fixture
+    keeps characterising tag-tree-weak only (actualtext-missing is covered
+    by table-noactualtext.pdf).
     Oracle: exactly 2 tag-tree-weak findings."""
     final = FIX / "violations.pdf"
     tmp = _base_to_tmp("violations", CONTENT_VIOLATIONS, with_image=False)
@@ -203,7 +224,8 @@ def make_violations():
         h3 = _make_el(pdoc, "/H3", 2, root_el, alt="Subsection")
         p = _make_el(pdoc, "/P", 3, root_el)
         table_el = pdoc.make_indirect(new_dict({
-            "S": pikepdf.Name("/Table"), "K": pikepdf.Array([]), "P": root_el}))
+            "S": pikepdf.Name("/Table"), "K": pikepdf.Array([]), "P": root_el,
+            "ActualText": "Header 1\tHeader 2\tValue 1\tValue 2"}))
         tr_el = pdoc.make_indirect(new_dict({
             "S": pikepdf.Name("/TR"), "K": pikepdf.Array([]), "P": table_el}))
         td1 = pdoc.make_indirect(new_dict({
@@ -277,6 +299,104 @@ def make_weak_repairable():
     tmp.unlink()
 
 
+def make_table_noactualtext():
+    """Tagged, clean catalog; a table with no /ActualText and a row without
+    TH (mirrors a real weak table: ActualText and TH missing together).
+    Oracle: audit -> exactly 2 findings: actualtext-missing (advisory) +
+    one tag-tree-weak 'no TH'."""
+    final = FIX / "table-noactualtext.pdf"
+    tmp = _base_to_tmp("table-noactualtext", CONTENT_TABLE, with_image=False)
+    with DocModel.open(tmp) as dm:
+        dm.set_lang("en")
+        dm.set_title("Table NoActualText Fixture")
+        dm.set_display_doc_title(True)
+        dm.set_marked(True)
+        dm.set_outline([(1, "Big Title", 0)])
+        pdoc = dm.doc
+        root_el = _new_root_el(pdoc)
+        h1 = _make_el(pdoc, "/H1", 1, root_el, alt="Big Title")
+        p = _make_el(pdoc, "/P", 2, root_el)
+        table_el = pdoc.make_indirect(new_dict({
+            "S": pikepdf.Name("/Table"), "K": pikepdf.Array([]), "P": root_el}))
+        tr_el = pdoc.make_indirect(new_dict({
+            "S": pikepdf.Name("/TR"), "K": pikepdf.Array([]), "P": table_el}))
+        td1 = pdoc.make_indirect(new_dict({
+            "S": pikepdf.Name("/TD"), "K": 3, "P": tr_el}))
+        td2 = pdoc.make_indirect(new_dict({
+            "S": pikepdf.Name("/TD"), "K": 4, "P": tr_el}))
+        tr_el["/K"] = pikepdf.Array([td1, td2])
+        table_el["/K"] = tr_el
+        root_el["/K"] = pikepdf.Array([h1, p, table_el])
+        _finalize_root(pdoc, root_el, [1, 2, 3, 4])
+        dm.save(final)
+    tmp.unlink()
+
+
+def make_table_actualtext():
+    """Same shape as table-noactualtext, but the row uses TH and the table
+    carries /ActualText -> no actualtext-missing, no no-TH finding.
+    Oracle: audit -> 0 findings."""
+    final = FIX / "table-actualtext.pdf"
+    tmp = _base_to_tmp("table-actualtext", CONTENT_TABLE, with_image=False)
+    with DocModel.open(tmp) as dm:
+        dm.set_lang("en")
+        dm.set_title("Table ActualText Fixture")
+        dm.set_display_doc_title(True)
+        dm.set_marked(True)
+        dm.set_outline([(1, "Big Title", 0)])
+        pdoc = dm.doc
+        root_el = _new_root_el(pdoc)
+        h1 = _make_el(pdoc, "/H1", 1, root_el, alt="Big Title")
+        p = _make_el(pdoc, "/P", 2, root_el)
+        table_el = pdoc.make_indirect(new_dict({
+            "S": pikepdf.Name("/Table"), "K": pikepdf.Array([]), "P": root_el,
+            "ActualText": "Header 1\tHeader 2\tValue 1\tValue 2"}))
+        tr_el = pdoc.make_indirect(new_dict({
+            "S": pikepdf.Name("/TR"), "K": pikepdf.Array([]), "P": table_el}))
+        th1 = pdoc.make_indirect(new_dict({
+            "S": pikepdf.Name("/TH"), "K": 3, "P": tr_el}))
+        th2 = pdoc.make_indirect(new_dict({
+            "S": pikepdf.Name("/TH"), "K": 4, "P": tr_el}))
+        tr_el["/K"] = pikepdf.Array([th1, th2])
+        table_el["/K"] = tr_el
+        root_el["/K"] = pikepdf.Array([h1, p, table_el])
+        _finalize_root(pdoc, root_el, [1, 2, 3, 4])
+        dm.save(final)
+    tmp.unlink()
+
+
+def make_xmp_incomplete():
+    """Tagged + complete catalog, but the XMP block lacks pdf:Producer
+    (dc:title is present). PDF/UA-1 requires XMP docProps for tagged
+    documents; untagged documents have no XMP block at all and stay out of
+    scope for this rule (see the rule's docstring).
+    Oracle: audit -> exactly 1 xmp-docprops-missing finding (fixable);
+    fix -> 0 findings, status pass."""
+    final = FIX / "xmp-incomplete.pdf"
+    tmp = _base_to_tmp("xmp-incomplete", CONTENT_MARKED)
+    with DocModel.open(tmp) as dm:
+        dm.set_lang("en")
+        dm.set_display_doc_title(True)
+        dm.set_marked(True)
+        dm.set_outline([(1, "Big Title", 0)])
+        dm.set_image_alt(0, "Im1", "A square")
+        pdoc = dm.doc
+        root_el = _new_root_el(pdoc)
+        h1 = _make_el(pdoc, "/H1", 1, root_el, alt="Big Title")
+        p = _make_el(pdoc, "/P", 2, root_el)
+        fig = _make_el(pdoc, "/Figure", 3, root_el, alt="A square")
+        root_el["/K"] = pikepdf.Array([h1, p, fig])
+        _finalize_root(pdoc, root_el, [1, 2, 3])
+        # Note: no dm.set_title() -> /Info.Title stays empty; XMP gets
+        # dc:title only (dm.title() falls back to the XMP title), so
+        # title-missing does NOT fire and the XMP block is genuinely
+        # incomplete (pdf:Producer empty).
+        with pdoc.open_metadata(set_pikepdf_as_editor=False) as meta:
+            meta["dc:title"] = "XMP Incomplete Fixture"
+        dm.save(final)
+    tmp.unlink()
+
+
 def copy_bread():
     """Real-world sample (subsetted fonts, custom encoding): the hard case."""
     shutil.copy(ROOT / "examples" / "No Knead Bread-print.pdf", FIX / "bread.pdf")
@@ -290,5 +410,8 @@ if __name__ == "__main__":
     make_violations()
     make_scan()
     make_weak_repairable()
+    make_table_noactualtext()
+    make_table_actualtext()
+    make_xmp_incomplete()
     copy_bread()
     print(f"fixtures written to {FIX}")

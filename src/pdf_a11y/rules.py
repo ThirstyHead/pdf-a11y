@@ -818,6 +818,153 @@ class MediaNoAlt:
         return False
 
 
+class ActualTextMissing:
+    """SC 1.3.1 / PDF-UA: /Table structure elements should carry /ActualText.
+
+    Tables are the canonical ActualText case (their cell grid is not reliably
+    exposed to AT otherwise). Advisory: actual text is human content, so this
+    is fixable=False. Deterministic trigger: any /Table element without
+    /ActualText.
+    """
+    rule_id = "actualtext-missing"
+    sc = "1.3.1"
+    severity = "serious"
+
+    def check(self, dm, ctx):
+        st = dm.struct_tree()
+        if st is None:
+            return []
+        out = []
+        for _, s, _alt, _hp, el in dm.walk_struct(st):
+            if el is None or isinstance(el, int) or s != "Table":
+                continue
+            if key(el, "ActualText") is None:
+                out.append(Finding(self.rule_id, self.sc, self.severity,
+                                   "StructTreeRoot /Table",
+                                   "A /Table structure element has no /ActualText; the "
+                                   "table's meaning is not exposed to assistive technology.",
+                                   "Table without /ActualText", False,
+                                   "Write an /ActualText plain-text summary of the table "
+                                   "(manual content)."))
+        return out
+
+    def fix(self, dm, finding, ctx):
+        return False          # advisory: human content
+
+
+class XmpDocPropsMissing:
+    """SC 1.3.1 / PDF-UA (tagged documents): the XMP metadata block must carry
+    the properties a PDF/UA document needs (dc:title + a producer).
+
+    Scope: TAGGED documents only (a StructTreeRoot is present). PDF/UA is a
+    specification for tagged PDFs; untagged documents carry no XMP block at
+    all and are reported by the tagging rules instead.
+
+    Deterministic + fixable for the fields we can know: producer (constant)
+    and title (from the document's /Info or XMP). Date fields are intentionally
+    NOT auto-filled (they would break determinism); they are noted in the fix
+    text, not written.
+    """
+    rule_id = "xmp-docprops-missing"
+    sc = "1.3.1"
+    severity = "moderate"
+
+    def check(self, dm, ctx):
+        from . import __version__
+        if dm.struct_tree() is None:
+            return []          # untagged: the tagging rules own the report
+        with dm.doc.open_metadata(set_pikepdf_as_editor=False) as meta:
+            has_title = bool(str(meta.get("dc:title") or "").strip())
+            has_producer = bool(str(meta.get("pdf:Producer") or "").strip())
+        if has_title and has_producer:
+            return []
+        missing = [n for n, ok in (("dc:title", has_title),
+                                   ("pdf:Producer", has_producer)) if not ok]
+        return [Finding(self.rule_id, self.sc, self.severity, "catalog /Metadata (XMP)",
+                        "XMP document properties incomplete for PDF/UA: missing "
+                        + ", ".join(missing) + ".",
+                        "missing=" + ",".join(missing), True,
+                        "Fill producer=pdf-a11y/" + __version__ + " and dc:title (from "
+                        "the document title). Set date fields manually (kept out for "
+                        "determinism).")]
+
+    def fix(self, dm, finding, ctx):
+        from . import __version__
+        with dm.doc.open_metadata(set_pikepdf_as_editor=False) as meta:
+            if not str(meta.get("pdf:Producer") or "").strip():
+                meta["pdf:Producer"] = f"pdf-a11y/{__version__}"
+            if not str(meta.get("dc:title") or "").strip():
+                t = dm.title()
+                if t:
+                    meta["dc:title"] = t
+        return True
+
+
+def _integrity_issues(dm) -> list:
+    """Structural-integrity issues (empty list = consistent): orphaned
+    structure elements (missing /P) and a ParentTree that does not cover the
+    root's page. Shared by ParentTreeMcidIntegrity's check() and fix()."""
+    st = dm.struct_tree()
+    if st is None:
+        return []
+    from .repair import _root_element
+    root = _root_element(st)
+    orphans = sum(1 for e in dm.walk_struct(st)
+                  if not isinstance(e[4], int) and e[3] is False)
+    issues = []
+    if orphans:
+        issues.append(f"orphans={orphans}")
+    if root is not None:
+        pt = key(st, "ParentTree")
+        covers_root = False
+        if pt is not None:
+            nums = key(pt, "Nums")
+            if isinstance(nums, pikepdf.Array):
+                covers_root = any(isinstance(nums[i + 1], pikepdf.Array)
+                                  and root in nums[i + 1]
+                                  for i in range(0, len(nums) - 1, 2))
+        if not covers_root:
+            issues.append("parenttree-missing-root")
+    return issues
+
+
+class ParentTreeMcidIntegrity:
+    """SC 1.3.1 / PDF-UA: every structure element has a valid /P and the
+    ParentTree covers the root's page. Reuses Phase B's repair_weak_tree
+    (orphan repoint + ParentTree rewrite). Deterministic + fixable.
+
+    The fix is opt-in (``ctx.scaffold and ctx.repair``), matching the Phase B
+    invariant that tree repair only runs with ``fix --repair`` — the plan's
+    own fix text says "automatic via fix --repair".
+    """
+    rule_id = "parenttree-mcid-integrity"
+    sc = "1.3.1"
+    severity = "serious"
+
+    def check(self, dm, ctx):
+        why = _integrity_issues(dm)
+        if not why:
+            return []
+        return [Finding(self.rule_id, self.sc, self.severity, "StructTreeRoot",
+                        "Structure tree integrity problem: " + ", ".join(why) +
+                        "; elements must have a valid /P and the ParentTree must cover "
+                        "the root's page.",
+                        ";".join(why), bool(ctx.repair),
+                        "Repoint orphaned /P and repair the ParentTree "
+                        "(automatic via fix --repair).")]
+
+    def fix(self, dm, finding, ctx):
+        # Opt-in (repair implies scaffold in the CLI): the whole-tree repair is
+        # shared with WeakTagTree — repair_weak_tree is idempotent, so whichever
+        # rule runs second simply verifies the invariant its sibling already
+        # restored (reported as success, not a spurious skip).
+        if not (ctx.scaffold and ctx.repair):
+            return False
+        from .repair import repair_weak_tree
+        repair_weak_tree(dm)
+        return not _integrity_issues(dm)
+
+
 RULES = [
     LanguageMissing(),
     TitleMissing(),
@@ -834,6 +981,9 @@ RULES = [
     ColorContrast(),
     ReadingOrder(),
     TextSpacing(),
+    ActualTextMissing(),
+    XmpDocPropsMissing(),
+    ParentTreeMcidIntegrity(),
 ]
 
 RULES_BY_ID = {r.rule_id: r for r in RULES}

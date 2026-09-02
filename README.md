@@ -119,6 +119,9 @@ Downstream fixes then run unmodified: the document title comes from the first H1
 | `link-text-vague` | 2.4.4 | moderate | no — manual (link purpose is human content) |
 | `display-doctitle-off` | 2.4.2 | minor | yes — `/ViewerPreferences /DisplayDocTitle` true |
 | `decorative-undeclared` | 1.1.1 | minor | yes — marks known-decorative images |
+| `actualtext-missing` | 1.3.1 | serious | no — advisory (a table's `/ActualText` summary is human content) |
+| `xmp-docprops-missing` | 1.3.1 | moderate | yes, tagged docs only — writes `pdf:Producer` (constant) + `dc:title` (from the document title); dates left manual for determinism |
+| `parenttree-mcid-integrity` | 1.3.1 | serious | with `fix --repair` only — repoints orphaned `/P` and rewrites `ParentTree` (shares the Phase B repair) |
 
 Severity order: critical → serious (blocking) → moderate → minor. The audit **passes** when there are no critical/serious findings; moderate findings are advisory.
 
@@ -134,7 +137,8 @@ Severity order: critical → serious (blocking) → moderate → minor. The audi
 - WCAG 2.1 AA with a PDF/UA-1 target. 2.x keyboard/interaction criteria are largely N/A for static PDFs; 2.4.1 (bypass blocks) and 2.4.4 (link purpose) are applied to the document outline and link annotations, which are the PDF equivalents. SC 2.4.2 (Page Titled) is applied by convention to document title metadata.
 - 1.2.x media alternatives: `media-no-alt` flags time-based media (form XObjects, /Screen annotations, embedded files) without an /Alt alternative; the caption/transcript itself is human content (no auto-captioning).
 - OCR of scanned (text-less) pages is opt-in via `fix --ocr` and requires the `ocr` extra plus `tesseract`; when absent it degrades gracefully and marks output OCR-derived.
-- Weak (already-tagged-but-broken) tag trees: `fix --repair` deterministically repairs orphaned structure elements (missing `/P`) and the `ParentTree`, implies `--scaffold`, and is fail-safe — content-level weaknesses (no headings, missing Alt, tables without headers, unbalanced BDC/EMC) are left as honest findings, never guessed. `audit --repair` is a no-op: audit stays read-only.
+- Weak (already-tagged-but-broken) tag trees: `fix --repair` deterministically repairs orphaned structure elements (missing `/P`) and the `ParentTree` (shared by `tag-tree-weak` and `parenttree-mcid-integrity`), implies `--scaffold`, and is fail-safe — content-level weaknesses (no headings, missing Alt, tables without headers, unbalanced BDC/EMC) are left as honest findings, never guessed. `audit --repair` is a no-op: audit stays read-only.
+- ISO 14289-1 structural completeness (new in 0.4.0): `actualtext-missing` flags `/Table` elements without `/ActualText` (advisory — the summary is human content); `xmp-docprops-missing` flags tagged documents whose XMP block lacks `dc:title`/`pdf:Producer` (tagged docs only — PDF/UA is a spec for tagged PDFs, and the scaffold now emits the metadata block it creates); `parenttree-mcid-integrity` verifies every structure element has a valid `/P` and the `ParentTree` covers the root's page (fix is `fix --repair` only).
 - 3.1.1 / 3.2.x / 3.3.x are out of scope for static document content.
 - Contrast assumes a flat background (`--background`); page-level backgrounds/gradients are out of scope.
 
@@ -148,6 +152,7 @@ Severity order: critical → serious (blocking) → moderate → minor. The audi
 
 - OCR of scanned pages (opt-in `fix --ocr`, pluggable, graceful).
 - Weak-tag-tree repair (opt-in `fix --repair`): orphaned structure elements and `ParentTree` rewritten deterministically; fail-safe on content-level weaknesses (left as findings).
+- ISO 14289-1 structural completeness (registry 15 → 18 rules): `actualtext-missing` (advisory — a table's `/ActualText` summary is human content), `xmp-docprops-missing` (tagged docs only — the scaffold now emits the `pdf:Producer`/`dc:title` metadata block it creates; dates left manual for determinism), and `parenttree-mcid-integrity` (validates `/P` + `ParentTree` coverage; repaired with `fix --repair` via the shared Phase B repair). New fixtures: `table-noactualtext.pdf`, `table-actualtext.pdf`, `xmp-incomplete.pdf`.
 
 ### 0.3.0
 

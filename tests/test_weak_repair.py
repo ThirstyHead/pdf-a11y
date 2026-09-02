@@ -22,17 +22,17 @@ def test_fixture_reports_exactly_one_orphan():
     assert "parent pointer" in weak[0]["description"]
 
 
-def test_repair_repoints_orphan_and_reaudits_clean():
+def test_repair_repoints_orphan_and_reaudits_clean(tmp_path):
     ctx = AuditContext(scaffold=True, repair=True)
-    fr = fix_one(SRC, ctx=ctx)
+    fr = fix_one(SRC, tmp_path / "out.pdf", ctx=ctx)
     assert fr["status"] == "pass", fr
     weak = [f for f in fr["reaudit"]["findings"] if f["rule_id"] == "tag-tree-weak"]
     assert weak == []          # the orphan finding is gone
 
 
-def test_repair_is_noop_without_flag():
+def test_repair_is_noop_without_flag(tmp_path):
     ctx = AuditContext(scaffold=True)          # scaffold but NOT repair
-    fr = fix_one(SRC, ctx=ctx)
+    fr = fix_one(SRC, tmp_path / "out.pdf", ctx=ctx)
     weak = [f for f in fr["reaudit"]["findings"] if f["rule_id"] == "tag-tree-weak"]
     assert len(weak) == 1          # repair is opt-in; finding persists
 

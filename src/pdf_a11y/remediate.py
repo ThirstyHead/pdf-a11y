@@ -24,10 +24,12 @@ APPLY_ORDER = [
     "DecorativeImageUndeclared",
     "MediaNoAlt",
     "WeakTagTree",            # repair tree integrity before outline is built
+    "ParentTreeMcidIntegrity",  # verify/repair the same integrity invariants
     "OutlineMissing",
     "TitleMissing",           # after structure/outline so the first H1 wins
     "LanguageMissing",
     "DisplayDocTitle",
+    "XmpDocPropsMissing",     # metadata block: always last
 ]
 
 # rule_id -> class name (for routing findings back to their rule)
@@ -47,10 +49,14 @@ _RULE_ID_TO_CLASS = {
     "link-text-vague": "BadLinkText",
     "pdf-encrypted": "EncryptedPdf",
     "color-contrast": "ColorContrast",
+    "xmp-docprops-missing": "XmpDocPropsMissing",
+    "parenttree-mcid-integrity": "ParentTreeMcidIntegrity",
+    # actualtext-missing is advisory (fixable=False): deliberately not routed.
 }
 
 # Rules whose fix() handles ALL of its findings in one shot (whole-doc mutations).
-BULK_RULES = {"TitleMissing", "DisplayDocTitle", "OutlineMissing", "WeakTagTree"}
+BULK_RULES = {"TitleMissing", "DisplayDocTitle", "OutlineMissing",
+              "WeakTagTree", "ParentTreeMcidIntegrity", "XmpDocPropsMissing"}
 
 
 @dataclass
