@@ -148,11 +148,12 @@ Severity order: critical → serious (blocking) → moderate → minor. The audi
 
 ## Changelog
 
-### 0.4.0 (in progress)
+### 0.4.0 (2026-09-02)
 
 - OCR of scanned pages (opt-in `fix --ocr`, pluggable, graceful).
 - Weak-tag-tree repair (opt-in `fix --repair`): orphaned structure elements and `ParentTree` rewritten deterministically; fail-safe on content-level weaknesses (left as findings).
 - ISO 14289-1 structural completeness (registry 15 → 18 rules): `actualtext-missing` (advisory — a table's `/ActualText` summary is human content), `xmp-docprops-missing` (tagged docs only — the scaffold now emits the `pdf:Producer`/`dc:title` metadata block it creates; dates left manual for determinism), and `parenttree-mcid-integrity` (validates `/P` + `ParentTree` coverage; repaired with `fix --repair` via the shared Phase B repair). New fixtures: `table-noactualtext.pdf`, `table-actualtext.pdf`, `xmp-incomplete.pdf`.
+- Scope note: the optional PySide6 GUI is deferred to **0.5.0** — 0.4.0 ships the CLI/engine work only.
 
 ### 0.3.0
 
