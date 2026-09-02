@@ -68,6 +68,9 @@ def _parse_outline_map(s):
 
 
 def _ctx(args, source_name, scaffold: bool) -> AuditContext:
+    # repair is a *write* capability: audit stays read-only, so the flag is a
+    # no-op there (mirrors how the scaffold default differs per command).
+    repair = getattr(args, "repair", False) and args.cmd != "audit"
     return AuditContext(
         source_name=source_name,
         default_language=args.language,
@@ -77,7 +80,7 @@ def _ctx(args, source_name, scaffold: bool) -> AuditContext:
         scaffold=scaffold,
         media_placeholder=getattr(args, "media_placeholder", False),
         ocr=getattr(args, "ocr", False),
-        repair=getattr(args, "repair", False),
+        repair=repair,
     )
 
 
@@ -93,6 +96,10 @@ def _add_fix_flags(p, scaffold_default=True):
     p.add_argument("--ocr", action="store_true",
                    help="OCR text-less (scanned) pages before fixing "
                         "(requires the `ocr` extra + tesseract; degrades gracefully)")
+    p.add_argument("--repair", action="store_true",
+                   help="repair already-tagged-but-weak trees (orphaned /P, "
+                        "ParentTree); implies --scaffold; fail-safe on "
+                        "content-level weaknesses (leaves them as findings)")
     # 0.3.0: `--scaffold` / `--no-scaffold` pair.
     #   - fix / remediate: ON by default (scaffold on; --no-scaffold opts out).
     #   - audit: OFF by default (scaffold_default=False) so auditing an untagged
@@ -208,6 +215,8 @@ def cmd_fix(args) -> int:
         from .ocr import ocr_prepare
         src, _n, note = ocr_prepare(args.file)
         print(f"[ocr] {note}")
+    if getattr(args, "repair", False):
+        args.scaffold = True          # --repair implies --scaffold
     ctx = _ctx(args, src, scaffold=args.scaffold)
     out = args.out or str(Path(src).with_name(Path(src).name + ".fixed.pdf"))
     fr = fix_one(src, out, ctx)

@@ -354,11 +354,19 @@ class WeakTagTree:
             out.append(Finding(self.rule_id, self.sc, self.severity, "StructTreeRoot",
                                f"{orphans} structure element(s) lack a /P parent pointer; "
                                "tag tree is malformed.",
-                               f"orphans={orphans}", False,
-                               "Repair the tag tree (manual: tag editor or re-export)."))
+                               f"orphans={orphans}", bool(ctx.repair),
+                               "Repair the tag tree (automatic with fix --repair; "
+                               "otherwise manual: tag editor or re-export)."))
         return out
 
     def fix(self, dm, finding, ctx):
+        # Opt-in (repair implies scaffold in the CLI): repoint orphaned /P
+        # elements and repair the ParentTree. Content-level weaknesses are
+        # deliberately NOT guessed at (see repair.repair_weak_tree).
+        if ctx.scaffold and ctx.repair:
+            from .repair import repair_weak_tree
+            r = repair_weak_tree(dm)
+            return (r["repointed"] + r["parenttree_fixed"]) > 0
         return False
 
 

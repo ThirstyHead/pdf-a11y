@@ -23,6 +23,7 @@ APPLY_ORDER = [
     "ImageAltMissing",
     "DecorativeImageUndeclared",
     "MediaNoAlt",
+    "WeakTagTree",            # repair tree integrity before outline is built
     "OutlineMissing",
     "TitleMissing",           # after structure/outline so the first H1 wins
     "LanguageMissing",
@@ -49,7 +50,7 @@ _RULE_ID_TO_CLASS = {
 }
 
 # Rules whose fix() handles ALL of its findings in one shot (whole-doc mutations).
-BULK_RULES = {"TitleMissing", "DisplayDocTitle", "OutlineMissing"}
+BULK_RULES = {"TitleMissing", "DisplayDocTitle", "OutlineMissing", "WeakTagTree"}
 
 
 @dataclass
