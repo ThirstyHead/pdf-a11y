@@ -146,6 +146,10 @@ Severity order: critical → serious (blocking) → moderate → minor. The audi
 
 `examples/` holds a real-world recipe document (`No Knead Bread-print.pdf`) used to reproduce an original manual audit run end-to-end; `examples/*.fixed.pdf` are regenerable outputs of `fix` (not committed).
 
+## Roadmap
+
+**0.4.0 (shipped 2026-09-02) → 0.5.0 (in progress):** PySide6 desktop GUI (optional `[gui]` extra), an immutable workspace with SHA-256 provenance and history/progress reporting, shared text-based (TOML) configuration, a WCAG 2.2 report engine (markdown → fully-accessible HTML → tagged, fully-accessible PDF), and cross-platform installers (Windows MSIX/ZIP, macOS DMG, Linux AppImage/.deb) with the CLI remaining a first-class client. Live phase status: [`docs/v0.5.0-status.md`](docs/v0.5.0-status.md).
+
 ## Changelog
 
 ### 0.4.0 (2026-09-02)
