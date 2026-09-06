@@ -332,16 +332,21 @@ def test_contrast_gate_all_bundled_themes():
 # ---------------------------------------------------------------------------
 
 def _cli(*extra):
+    # No explicit cwd: the package is editable-installed, so the subprocess
+    # resolves it from any CWD and the CWD-relative report (e.g.
+    # violations.html) lands where the test chdir'd it (tmp_path).
     return subprocess.run(
         [sys.executable, "-m", "pdf_a11y.cli", "audit",
          str(FIX / "violations.pdf"), *extra],
-        capture_output=True, text=True, cwd=str(REPO), timeout=120)
+        capture_output=True, text=True, timeout=120)
 
 
 def test_cli_html_format(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+    # NOTE: violations.pdf FAILs the audit, so exit code is 1 (pre-existing
+    # cmd_audit contract: 0=PASS, 1=FAIL); the report is still written.
     r = _cli("--format", "html")
-    assert r.returncode == 0, r.stderr
+    assert r.returncode == 1, r.stderr
     out = Path("violations.html")
     assert out.exists(), "expected <stem>.html in CWD"
     doc = out.read_text()
@@ -353,7 +358,7 @@ def test_cli_html_format(tmp_path, monkeypatch):
 def test_cli_html_with_theme(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     r = _cli("--format", "html", "--theme", "ocean")
-    assert r.returncode == 0, r.stderr
+    assert r.returncode == 1, r.stderr  # FAIL verdict (see above)
     assert "/* pdf-a11y theme: ocean */" in Path("violations.html").read_text()
 
 

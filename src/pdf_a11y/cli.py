@@ -32,7 +32,7 @@ from .audit import audit_file, audit_result_to_json
 from .enrich import build_enrichment
 from .remediate import _batch_pdf_files, fix_batch, fix_one, remediate
 from .report import write_report  # noqa: F401  (compat re-export)
-from .reports import compute_stats, render_md, report_json
+from .reports import compute_stats, render_md, render_html, report_json, theme_css
 from .rules import RULES, AuditContext
 
 
@@ -92,6 +92,8 @@ def _report_plan(args):
             plan.append((f, report or f"{stem}-a11y-report.md"))
         elif f == "json":
             plan.append((f, f"{stem}-a11y-report.json"))
+        elif f == "html":
+            plan.append((f, f"{stem}.html"))
     return plan
 
 
@@ -99,7 +101,15 @@ def _write_reports(args, result, remediation=None, stats=None, live_enrich=None)
     """Render + write each (fmt, out) in the plan; returns the plan written."""
     written = []
     enrichment = source = None
-    for fmt, out in _report_plan(args):
+    plan = _report_plan(args)
+    theme = getattr(args, "theme", None) or "light"
+    if any(f == "html" for f, _ in plan):
+        try:
+            theme_css(theme)  # validates the theme name (error lists themes)
+        except KeyError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            sys.exit(2)
+    for fmt, out in plan:
         if fmt == "md":
             if enrichment is None and live_enrich is not None:
                 enrichment, source = build_enrichment(result, live=live_enrich)
@@ -113,9 +123,22 @@ def _write_reports(args, result, remediation=None, stats=None, live_enrich=None)
             Path(out).write_text(report_json(result, remediation=remediation,
                                              stats=stats) + "\n")
             written.append((fmt, out, None))
+        elif fmt == "html":
+            if enrichment is None and live_enrich is not None:
+                enrichment, source = build_enrichment(result, live=live_enrich)
+            md_text = render_md(result, remediation=remediation,
+                                source_path=getattr(args, "file", None),
+                                enrichment=enrichment,
+                                enrichment_source=source, stats=stats)
+            doc = render_html(md_text, theme=theme,
+                              lang=result.get("language") or "en")
+            Path(out).write_text(doc)
+            written.append((fmt, out, source))
     for fmt, out, source in written:
         if fmt == "md":
             print(f"report written: {out} (normative text: {source})")
+        elif fmt == "html":
+            print(f"report written: {out} (html, theme: {theme})")
         else:
             print(f"report written: {out} (json)")
     return written
@@ -370,11 +393,16 @@ def main(argv=None) -> int:
                    help="write the markdown report to PATH "
                         "(alias for --format md with an explicit path)")
     a.add_argument("--format", dest="formats", action="append", default=None,
-                   choices=["md", "json"], metavar="FMT",
-                   help="report format to write, repeatable (md, json; html/pdf "
-                        "land in the 0.5.0 report phases). md defaults to "
-                        "<stem>-a11y-report.md in the CWD unless --report gives "
-                        "the path; json writes <stem>-a11y-report.json")
+                   choices=["md", "json", "html"], metavar="FMT",
+                   help="report format to write, repeatable (md, json, html; "
+                        "the tagged-pdf format lands in the 0.5.0 report "
+                        "phases). md defaults to <stem>-a11y-report.md in the "
+                        "CWD unless --report gives the path; json writes "
+                        "<stem>-a11y-report.json; html writes <stem>.html")
+    a.add_argument("--theme", default=None, metavar="THEME",
+                   help="theme for --format html (default: light; see "
+                        "--help for bundled: light, dark, high-contrast, "
+                        "ocean, forest)")
     _add_fix_flags(a, scaffold_default=False)
     a.add_argument("--enrich", action="store_true",
                    help="fetch normative text live from a locally installed wcag-guidelines-mcp "
