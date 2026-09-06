@@ -108,7 +108,10 @@ class DocScan(HTMLParser):
     def handle_starttag(self, tag, attrs):
         a = dict(attrs)
         self.attrs_seen.append((tag, a))
-        if tag == "html":
+        if tag == "meta":
+            if "charset" in a:
+                self.has_charset = True
+        elif tag == "html":
             self.html_lang = a.get("lang")
         elif tag == "link":
             rel = (a.get("rel") or "").lower()

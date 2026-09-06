@@ -1,0 +1,6 @@
+{
+  "name": "high-contrast",
+  "label": "High Contrast",
+  "mode": "light",
+  "default": false
+}

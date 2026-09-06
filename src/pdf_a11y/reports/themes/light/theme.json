@@ -1,0 +1,6 @@
+{
+  "name": "light",
+  "label": "Light",
+  "mode": "light",
+  "default": true
+}
