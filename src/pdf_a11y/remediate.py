@@ -183,6 +183,7 @@ def fix_one(src_path, out_path=None, ctx=None) -> dict:
         return {**base, "status": "error",
                 "error": f"audit failed: {type(exc).__name__}: {exc}"}
     base["findings_before"] = before["summary"]["total"]
+    base["pass_before"] = before["summary"]["pass"]
 
     try:
         if before["findings"]:

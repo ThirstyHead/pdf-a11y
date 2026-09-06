@@ -1,12 +1,14 @@
 """pdf-a11y CLI.
 
 Usage:
-  pdf-a11y audit FILE [--json out.json] [--report out.md] [--language en-US]
-             [--background FFFFFF] [--alt-map '0:Image28=...'] [--outline-map '1=Title:0,2=Sub:1']
+  pdf-a11y audit FILE [--json out.json] [--report out.md] [--format md|json]
+             [--language en-US] [--background FFFFFF]
+             [--alt-map '0:Image28=...'] [--outline-map '1=Title:0,2=Sub:1']
              [--enrich]
-  pdf-a11y audit --batch DIR [same flags except --report]
+  pdf-a11y audit --batch DIR [same flags except --report/--format]
   pdf-a11y remediate FILE --findings audit.json --out FILE.fixed.pdf [same fix flags]
-  pdf-a11y fix FILE [--out FILE.fixed.pdf] [--json out.json] [--report out.md] [same flags]
+  pdf-a11y fix FILE [--out FILE.fixed.pdf] [--json out.json] [--report out.md]
+             [--format md|json] [same flags]
   pdf-a11y fix --batch DIR [--json out.json] [same flags except --out/--report]
   pdf-a11y rules
 
@@ -29,7 +31,8 @@ from . import __version__
 from .audit import audit_file, audit_result_to_json
 from .enrich import build_enrichment
 from .remediate import _batch_pdf_files, fix_batch, fix_one, remediate
-from .report import write_report
+from .report import write_report  # noqa: F401  (compat re-export)
+from .reports import compute_stats, render_md, report_json
 from .rules import RULES, AuditContext
 
 
@@ -65,6 +68,57 @@ def _parse_outline_map(s):
             raise SystemExit(f"error: bad --outline-map entry {part!r} "
                              f"(want 'level=title:page')")
     return out
+
+
+def _report_plan(args):
+    """[(fmt, out_path)] from --format (multi-valued) + --report (md alias).
+
+    md -> <stem>-a11y-report.md, unless --report PATH gives the explicit path
+    (in which case --report also enables the md format). json ->
+    <stem>-a11y-report.json. Output defaults land in the CWD, never next to
+    the source.
+    """
+    fmts = list(getattr(args, "formats", None) or [])
+    report = getattr(args, "report", None)
+    if report:
+        fmts.append("md")
+    seen, plan = set(), []
+    stem = Path(getattr(args, "file", "") or "report").stem or "report"
+    for f in fmts:
+        if f in seen:
+            continue
+        seen.add(f)
+        if f == "md":
+            plan.append((f, report or f"{stem}-a11y-report.md"))
+        elif f == "json":
+            plan.append((f, f"{stem}-a11y-report.json"))
+    return plan
+
+
+def _write_reports(args, result, remediation=None, stats=None, live_enrich=None):
+    """Render + write each (fmt, out) in the plan; returns the plan written."""
+    written = []
+    enrichment = source = None
+    for fmt, out in _report_plan(args):
+        if fmt == "md":
+            if enrichment is None and live_enrich is not None:
+                enrichment, source = build_enrichment(result, live=live_enrich)
+            text = render_md(result, remediation=remediation,
+                             source_path=getattr(args, "file", None),
+                             enrichment=enrichment,
+                             enrichment_source=source, stats=stats)
+            Path(out).write_text(text)
+            written.append((fmt, out, source))
+        elif fmt == "json":
+            Path(out).write_text(report_json(result, remediation=remediation,
+                                             stats=stats) + "\n")
+            written.append((fmt, out, None))
+    for fmt, out, source in written:
+        if fmt == "md":
+            print(f"report written: {out} (normative text: {source})")
+        else:
+            print(f"report written: {out} (json)")
+    return written
 
 
 def _ctx(args, source_name, scaffold: bool) -> AuditContext:
@@ -128,11 +182,7 @@ def cmd_audit(args) -> int:
     if args.json:
         Path(args.json).write_text(audit_result_to_json(result) + "\n")
         print(f"findings written: {args.json}")
-    if args.report:
-        enrichment, source = build_enrichment(result, live=getattr(args, "enrich", False))
-        write_report(result, args.report, source_path=args.file,
-                     enrichment=enrichment, enrichment_source=source)
-        print(f"report written: {args.report} (normative text: {source})")
+    _write_reports(args, result, live_enrich=getattr(args, "enrich", False))
 
     s = result["summary"]
     verdict = "PASS" if s["pass"] else "FAIL"
@@ -148,6 +198,9 @@ def cmd_audit(args) -> int:
 def _cmd_audit_batch(args) -> int:
     """audit --batch DIR: audit every PDF in the dir (non-recursive),
     per-file verdict lines + aggregate; --json writes ONE aggregated file."""
+    if getattr(args, "formats", None) or getattr(args, "report", None):
+        print("warning: --report/--format are not supported in batch mode; "
+              "use --json (one aggregated file)", file=sys.stderr)
     results = {}
     failed = 0
     try:
@@ -248,12 +301,15 @@ def cmd_fix(args) -> int:
             if f["severity"] in ("critical", "serious"):
                 print(f"  [BLOCKING] {f['rule_id']} SC {f['sc']} @ {f['location']} :: {f['description']}")
 
-    if args.report:
-        enrichment, source = build_enrichment(fr["reaudit"], live=getattr(args, "enrich", False))
-        write_report(fr["reaudit"], args.report, remediation=fr["remediation"],
-                     source_path=args.file, enrichment=enrichment,
-                     enrichment_source=source)
-        print(f"report written: {args.report} (normative text: {source})")
+    stats = None
+    if fr["reaudit"] is not None:
+        stats = compute_stats(
+            fr["findings_before"],
+            fr["reaudit"]["summary"]["total"],
+            pass_before=fr.get("pass_before"),
+            pass_after=fr["reaudit"]["summary"]["pass"])
+    _write_reports(args, fr["reaudit"], remediation=fr["remediation"],
+                   stats=stats, live_enrich=getattr(args, "enrich", False))
     return 0 if fr["status"] == "pass" else 1
 
 
@@ -310,7 +366,15 @@ def main(argv=None) -> int:
     a.add_argument("file", nargs="?", help="PDF to audit (omit when using --batch)")
     a.add_argument("--batch", help="audit every PDF in a directory (non-recursive)")
     a.add_argument("--json", help="write findings JSON")
-    a.add_argument("--report", help="write markdown report")
+    a.add_argument("--report",
+                   help="write the markdown report to PATH "
+                        "(alias for --format md with an explicit path)")
+    a.add_argument("--format", dest="formats", action="append", default=None,
+                   choices=["md", "json"], metavar="FMT",
+                   help="report format to write, repeatable (md, json; html/pdf "
+                        "land in the 0.5.0 report phases). md defaults to "
+                        "<stem>-a11y-report.md in the CWD unless --report gives "
+                        "the path; json writes <stem>-a11y-report.json")
     _add_fix_flags(a, scaffold_default=False)
     a.add_argument("--enrich", action="store_true",
                    help="fetch normative text live from a locally installed wcag-guidelines-mcp "
@@ -329,7 +393,16 @@ def main(argv=None) -> int:
     fx.add_argument("--batch", help="process every PDF in a directory instead of one file (non-recursive)")
     fx.add_argument("--out", help="output PDF (default: <file>.fixed.pdf)")
     fx.add_argument("--json", help="write full fix result JSON (before/after/remediation)")
-    fx.add_argument("--report", help="write markdown report (re-audit + remediation section)")
+    fx.add_argument("--report",
+                    help="write the markdown report (re-audit + remediation "
+                         "section) to PATH (alias for --format md with an "
+                         "explicit path)")
+    fx.add_argument("--format", dest="formats", action="append", default=None,
+                    choices=["md", "json"], metavar="FMT",
+                    help="report format to write, repeatable (md, json; html/pdf "
+                         "land in the 0.5.0 report phases); the report covers "
+                         "the re-audit. md defaults to <stem>-a11y-report.md "
+                         "unless --report gives the path")
     _add_fix_flags(fx)
     fx.add_argument("--enrich", action="store_true",
                     help="fetch normative text live from wcag-guidelines-mcp for --report")
