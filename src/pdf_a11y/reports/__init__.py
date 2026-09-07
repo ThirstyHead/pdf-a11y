@@ -26,8 +26,11 @@ from .md import (
     render_md,
     report_json,
 )
+from .html import render_html
+from .theme import BUNDLED_THEMES, available_themes, theme_css
 
 __all__ = [
+    "BUNDLED_THEMES",
     "POUR_INTROS",
     "RULE_NOTES",
     "RULE_TONES",
@@ -35,7 +38,10 @@ __all__ = [
     "WHO_MAP",
     "W3C_QUICKREF",
     "W3C_UNDERSTANDING",
+    "available_themes",
     "compute_stats",
+    "render_html",
     "render_md",
     "report_json",
+    "theme_css",
 ]

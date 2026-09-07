@@ -16,6 +16,7 @@ dependencies = [
     "pymupdf>=1.24",
     "pdfplumber>=0.11",
     "wcag-contrast-ratio>=0.9,<1",
+    "markdown>=3.6,<4",
 ]
 
 [project.optional-dependencies]
@@ -30,7 +31,12 @@ pdf-a11y = "pdf_a11y.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-pdf_a11y = ["sc_cache.json"]
+pdf_a11y = [
+    "sc_cache.json",
+    "reports/themes/**/*.css",
+    "reports/themes/**/*.json",
+    "reports/themes/**/*.md",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
