@@ -176,3 +176,77 @@ def test_cli_fix_scaffold_backcompat_alias(tmp_path):
         assert dm.struct_tree() is not None
     finally:
         dm.close()
+
+
+# -- Story-compat (1c.0 spike): per-text-object units + persistent Tf ----------
+# PyMuPDF Story (and WeasyPrint) write several text objects per BT..ET and set
+# the font once, then reuse it (Tf persists across BT/ET). The old one-unit-
+# per-BT..ET model lost lines and defaulted inherited fonts to tf=1.0. The
+# scanner must emit one unit per text-drawing op with the font in effect at
+# that op. bread (1 Tm + 1 Tf per BT..ET) must come out unchanged.
+
+def test_scan_units_splits_multiple_tm_in_one_block():
+    from pdf_a11y.scaffold import _scan_units
+    data = (b"BT /F0 22 Tf 1 0 0 -1 67 90 Tm (H1) Tj "
+            b"/F0 16 Tf 1 0 0 -1 67 126 Tm (H2) Tj "
+            b"/F1 11 Tf 1 0 0 -1 67 154 Tm (Body) Tj ET "
+            b"BT 1 0 0 -1 170 321 Tm (Cell) Tj ET")
+    units = _scan_units(data)
+    assert len(units) == 4, units
+    # font in effect at each draw op; the 4th (no Tf in its block) inherits 11
+    assert [u["tf"] for u in units] == [22.0, 16.0, 11.0, 11.0]
+    assert units[0]["tm"] == (1.0, 0.0, 0.0, -1.0, 67.0, 90.0)
+    assert units[3]["tm"] == (1.0, 0.0, 0.0, -1.0, 170.0, 321.0)
+
+
+def test_scan_units_font_persists_across_blocks():
+    from pdf_a11y.scaffold import _scan_units
+    data = (b"BT /F0 13 Tf 1 0 0 1 72 700 Tm (a) Tj ET "
+            b"BT 1 0 0 1 72 680 Tm (b) Tj ET")
+    units = _scan_units(data)
+    assert [u["tf"] for u in units] == [13.0, 13.0]
+
+
+def test_scan_units_bread_shape_unchanged():
+    """bread writes 1 Tm + 1 Tf per BT..ET -> one unit per block, same as
+    the historical BT..ET granularity (parity guard for the scanner change)."""
+    from pdf_a11y.scaffold import _scan_units
+    data = (b"BT /F0 2 Tf 1 0 0 83 225 414 Tm (x) TJ ET "
+            b"BT /F1 1 Tf 1 0 0 50 225 311 Tm (y) Tj ET")
+    units = _scan_units(data)
+    assert len(units) == 2
+    assert [u["tf"] for u in units] == [2.0, 1.0]
+
+
+def test_bread_unit_count_parity():
+    """The per-text-object scanner must not change bread's unit count."""
+    units = extract_units(BREAD)
+    assert len(units) == 75
+    assert all(unit_device_size(u) > 0 for u in units)
+
+
+def test_story_pdf_build_plan(tmp_path):
+    """End-to-end: a real PyMuPDF Story PDF scaffolds with the H1 detected as
+    a headed block (alt filled) and body as P, and no 1.0pt phantom units."""
+    import pymupdf as fitz
+    out = tmp_path / "story.pdf"
+    A4 = fitz.paper_rect("a4")
+    html = ("<h1>Report Title</h1>"
+            "<p>Some body text here for the perceivable section.</p>")
+    css = ("body{font-family:sans-serif;font-size:11pt;color:#000}"
+           "h1{font-size:22pt}")
+    story = fitz.Story(html=html, user_css=css)
+    writer = fitz.DocumentWriter(str(out))
+    more = 1
+    while more:
+        dev = writer.begin_page(A4)
+        more, _ = story.place(A4)
+        story.draw(dev)
+        writer.end_page()
+    writer.close()
+    plan = build_plan(out)
+    heads = [b for b in plan.blocks if b.role.startswith("H")]
+    assert heads, "expected a heading from the <h1>"
+    assert any("Report Title" in b.unit.alt for b in heads)
+    assert any(b.role == "P" for b in plan.blocks)
+    assert all(unit_device_size(b.unit) > 0.5 for b in plan.blocks)
