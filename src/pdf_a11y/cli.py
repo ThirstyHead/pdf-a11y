@@ -402,7 +402,7 @@ def main(argv=None) -> int:
     a.add_argument("--theme", default=None, metavar="THEME",
                    help="theme for --format html (default: light; see "
                         "--help for bundled: light, dark, high-contrast, "
-                        "ocean, forest)")
+                        "ocean, forest, print)")
     _add_fix_flags(a, scaffold_default=False)
     a.add_argument("--enrich", action="store_true",
                    help="fetch normative text live from a locally installed wcag-guidelines-mcp "

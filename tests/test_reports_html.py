@@ -35,7 +35,7 @@ from pdf_a11y.reports.theme import (
 
 REPO = Path(__file__).resolve().parent.parent
 FIX = REPO / "tests" / "fixtures"
-BUNDLED = ["light", "dark", "high-contrast", "ocean", "forest"]
+BUNDLED = ["light", "dark", "high-contrast", "ocean", "forest", "print"]
 
 SAMPLE_MD = "\n".join([
     "# Accessibility Audit Report — sample.pdf",

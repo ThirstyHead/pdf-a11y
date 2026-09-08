@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate the 5 bundled theme token files + theme.json (deterministic).
+"""Regenerate the bundled theme token files + theme.json (deterministic).
 
 Provenance for src/pdf_a11y/reports/themes/{name}/{tokens.css,theme.json}.
 Idempotent: running it reproduces the committed assets byte-for-byte. The
@@ -61,6 +61,15 @@ THEMES = {
             "--accent": "#2d6a2d", "--link": "#245724", "--code-bg": "#dcebe0",
             "--sev-critical": "#8c1f1f", "--sev-serious": "#7a4a00",
             "--sev-moderate": "#5a5200", "--sev-minor": "#37503f",
+        },
+    },
+    "print": {
+        "label": "Print (black & white)", "mode": "light", "default": False,
+        "tokens": {
+            "--bg": "#ffffff", "--fg": "#000000", "--muted": "#000000",
+            "--accent": "#000000", "--link": "#000000", "--code-bg": "#ffffff",
+            "--sev-critical": "#000000", "--sev-serious": "#000000",
+            "--sev-moderate": "#000000", "--sev-minor": "#000000",
         },
     },
 }
