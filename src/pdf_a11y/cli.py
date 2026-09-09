@@ -33,7 +33,11 @@ from .enrich import build_enrichment
 from .remediate import _batch_pdf_files, fix_batch, fix_one, remediate
 from .report import write_report  # noqa: F401  (compat re-export)
 from .reports import compute_stats, render_md, render_html, report_json, theme_css
+from .reports.pdf import render_pdf
+from .reports.theme import available_themes
 from .rules import RULES, AuditContext
+from .remediate import remediate_file
+from .triage import run_interactive_triage
 
 
 def _parse_alt_map(s):
@@ -401,7 +405,87 @@ def cmd_rules(_args) -> int:
     return 0
 
 
-def main(argv=None) -> int:
+def process_single_file(input_path: Path, args: argparse.Namespace, out_dir: Path) -> bool:
+    """Processes a single .pdf file: triage, audit, remediation, and reporting."""
+    stem = input_path.stem
+    target_path = input_path
+
+    if getattr(args, "triage", False):
+        triaged_pdf = Path(args.out_pdf) if getattr(args, "out_pdf", None) else out_dir / f"{stem}-triaged.pdf"
+        run_interactive_triage(target_path, triaged_pdf)
+        if triaged_pdf.exists():
+            target_path = triaged_pdf
+            stem = target_path.stem
+
+    # 1. Initial audit
+    audit_before = audit_file(str(target_path))
+    audit_after = None
+    rem_res = {}
+
+    # 2. Remediate if requested
+    if getattr(args, "fix", False):
+        fixed_pdf = Path(args.out_pdf) if getattr(args, "out_pdf", None) else out_dir / f"{stem}-remediated.pdf"
+        if fixed_pdf.resolve() == target_path.resolve():
+            print("Error: --out-pdf cannot match input document. pdf-a11y strictly guarantees that original files remain untouched and immutable.", file=sys.stderr)
+            sys.exit(2)
+
+        rem_res = remediate_file(target_path, fixed_pdf)
+        print(f"[Integrity Verified] Original file preserved unchanged (SHA-256: {rem_res.get('original_sha256')})")
+        print(f"Remediation saved to: {fixed_pdf}")
+        for fix in rem_res.get("remediations_applied", []):
+            print(f" - {fix}")
+        audit_after = audit_file(str(fixed_pdf))
+
+    # 3. Render reports
+    raw_formats = getattr(args, "formats", None) or getattr(args, "format", "md")
+    formats = []
+    if isinstance(raw_formats, list):
+        for f in raw_formats:
+            for part in str(f).split(","):
+                part = part.strip().lower()
+                if part:
+                    formats.append(part)
+    elif raw_formats:
+        for part in str(raw_formats).split(","):
+            part = part.strip().lower()
+            if part:
+                formats.append(part)
+
+    theme = getattr(args, "theme", "light") or "light"
+
+    md_text = render_md(
+        audit_before,
+        remediation=rem_res.get("remediation") if getattr(args, "fix", False) else None,
+        source_path=str(input_path),
+    )
+
+    if "md" in formats:
+        md_file = out_dir / f"{stem}-a11y-report.md"
+        md_file.write_text(md_text, encoding="utf-8")
+        print(f"Markdown report: {md_file}")
+
+    if "json" in formats:
+        json_file = out_dir / f"{stem}-audit.json"
+        json_file.write_text(json.dumps(audit_before, indent=2), encoding="utf-8")
+        print(f"JSON audit: {json_file}")
+
+    if "html" in formats:
+        html_doc = render_html(md_text, theme=theme, lang=audit_before.get("language") or "en")
+        html_file = out_dir / f"{stem}-a11y-report.html"
+        html_file.write_text(html_doc, encoding="utf-8")
+        print(f"Accessible HTML report: {html_file}")
+
+    if "pdf" in formats:
+        html_doc = render_html(md_text, theme=theme, lang=audit_before.get("language") or "en")
+        pdf_file = out_dir / f"{stem}-a11y-report.pdf"
+        render_pdf(html_doc, theme=theme, out_path=pdf_file, lang=audit_before.get("language") or "en")
+        print(f"Accessible PDF report: {pdf_file}")
+
+    final_summary = (audit_after or audit_before).get("summary", {})
+    return bool(final_summary.get("pass", False))
+
+
+def _build_subcommand_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="pdf-a11y",
                                 description="Audit and remediate PDF files for WCAG 2.1 AA / PDF-UA.")
     p.add_argument("--version", action="version", version=f"pdf-a11y {__version__}")
@@ -419,7 +503,7 @@ def main(argv=None) -> int:
                    help="report format to write, repeatable or comma-separated "
                         "(md, json, html, pdf). md defaults to <stem>-a11y-report.md; "
                         "json writes <stem>-a11y-report.json; html writes <stem>.html; "
-                        "pdf writes <stem>-a11y-report.pdf")
+                        "pdf writes <stem>.report.pdf")
     a.add_argument("--theme", default=None, metavar="THEME",
                    help="theme for --format html and pdf (default: light; see "
                         "--help for bundled: light, dark, high-contrast, "
@@ -457,9 +541,78 @@ def main(argv=None) -> int:
 
     rl = sub.add_parser("rules", help="list audit rules")
     rl.set_defaults(func=cmd_rules)
+    return p
 
-    args = p.parse_args(argv)
-    return args.func(args)
+
+def main(argv=None) -> int:
+    if argv is None:
+        argv = sys.argv[1:]
+
+    subcommands = {"audit", "remediate", "fix", "scaffold", "rules", "enrich", "clean"}
+
+    if argv and argv[0] in subcommands:
+        p = _build_subcommand_parser()
+        args = p.parse_args(argv)
+        return args.func(args)
+
+    root_parser = argparse.ArgumentParser(
+        prog="pdf-a11y",
+        description="Audit and remediate PDF documents against WCAG 2.1/2.2 AA and PDF/UA standards."
+    )
+    root_parser.add_argument("--version", action="version", version=f"pdf-a11y {__version__}")
+    root_parser.add_argument("file", nargs="?", default=None, help="Path to .pdf file or directory")
+    root_parser.add_argument("--gui", action="store_true", help="Launch graphical user interface")
+    root_parser.add_argument("--format", default="md", help="Report formats (comma-separated): md, html, pdf, json (default: md)")
+    root_parser.add_argument("--theme", default="light", help="Theme for HTML/PDF reports (light, dark, high-contrast, ocean, forest, print)")
+    root_parser.add_argument("--output-dir", default=".", help="Directory to save generated reports (default: current directory)")
+    root_parser.add_argument("--fix", action="store_true", help="Perform deterministic remediation (source remains immutable)")
+    root_parser.add_argument("--triage", action="store_true", help="Launch interactive author-intent triage session")
+    root_parser.add_argument("--out-pdf", default=None, help="Output path for remediated .pdf file")
+    root_parser.add_argument("--batch", action="store_true", help="Process all .pdf files in specified directory")
+
+    if not argv:
+        root_parser.print_help(sys.stderr)
+        return 2
+
+    args = root_parser.parse_args(argv)
+
+    if args.gui:
+        try:
+            from .gui.app import main as gui_main
+            gui_main()
+            return 0
+        except (ImportError, ModuleNotFoundError) as e:
+            print(f"Error: GUI dependencies not installed. Run 'pip install pdf-a11y[gui]'. ({e})", file=sys.stderr)
+            return 2
+
+    if not args.file:
+        root_parser.print_help(sys.stderr)
+        return 2
+
+    input_path = Path(args.file)
+    if not input_path.exists():
+        print(f"Error: File or directory '{input_path}' not found.", file=sys.stderr)
+        return 2
+
+    out_dir = Path(args.output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    if input_path.is_dir() or args.batch:
+        files = sorted(input_path.glob("*.pdf")) if input_path.is_dir() else [input_path]
+        files = [f for f in files if not f.name.startswith("._")]
+        if not files:
+            print(f"No .pdf files found in {input_path}", file=sys.stderr)
+            return 2
+        all_passed = True
+        for f in files:
+            print(f"\nProcessing: {f.name}...")
+            passed = process_single_file(f, args, out_dir)
+            if not passed:
+                all_passed = False
+        return 0 if all_passed else 1
+    else:
+        passed = process_single_file(input_path, args, out_dir)
+        return 0 if passed else 1
 
 
 if __name__ == "__main__":

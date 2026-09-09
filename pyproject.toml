@@ -26,6 +26,7 @@ gui = ["PySide6>=6.5"]
 
 [project.scripts]
 pdf-a11y = "pdf_a11y.cli:main"
+pdf-a11y-gui = "pdf_a11y.gui:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
