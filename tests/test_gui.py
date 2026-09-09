@@ -2,6 +2,8 @@
 import os
 from pathlib import Path
 import pytest
+
+pyside6 = pytest.importorskip("PySide6")
 from PySide6.QtCore import Qt
 
 # Force offscreen rendering for headless tests

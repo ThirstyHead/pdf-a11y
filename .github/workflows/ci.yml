@@ -17,19 +17,31 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install
+      - name: Install system dependencies for headless Qt
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libdbus-1-3
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e ".[all]"
       - name: Build fixtures
         run: python tests/make_fixtures.py
       - name: Run tests
+        env:
+          QT_QPA_PLATFORM: offscreen
         run: python -m pytest tests/ -q
       - name: Smoke CLI
+        env:
+          QT_QPA_PLATFORM: offscreen
         run: |
-          pdf-a11y rules
-          pdf-a11y audit tests/fixtures/clean.pdf
-          pdf-a11y audit tests/fixtures/fixable.pdf --json /tmp/v.json || true
-          pdf-a11y fix tests/fixtures/tagged-nooutline.pdf --out /tmp/f.pdf
-          test -f /tmp/f.pdf
-          pdf-a11y audit --batch tests/fixtures || true
+          mkdir -p /tmp/smoke
+          pdf-a11y tests/fixtures/clean.pdf --format md,html,pdf,json --output-dir /tmp/smoke
+          test -f /tmp/smoke/clean-a11y-report.md
+          test -f /tmp/smoke/clean-a11y-report.html
+          test -f /tmp/smoke/clean-a11y-report.pdf
+          test -f /tmp/smoke/clean-audit.json
+          pdf-a11y tests/fixtures/fixable.pdf --fix --out-pdf /tmp/smoke/fixed.pdf --format md,html,pdf,json --output-dir /tmp/smoke || true
+          test -f /tmp/smoke/fixed.pdf
+          test -f /tmp/smoke/fixable-a11y-report.pdf
+          pdf-a11y tests/fixtures --batch --output-dir /tmp/smoke || true
