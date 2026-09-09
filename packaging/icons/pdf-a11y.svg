@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="badgeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#dc2626"/>
+    </linearGradient>
+    <linearGradient id="a11yGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Base Rounded Squircle -->
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#bgGrad)" stroke="#334155" stroke-width="8"/>
+
+  <!-- Document Sheet -->
+  <path d="M128 80h176l96 96v240c0 17.673-14.327 32-32 32H128c-17.673 0-32-14.327-32-32V112c0-17.673 14.327-32 32-32z" fill="#f8fafc"/>
+  <path d="M304 80v72c0 13.255 10.745 24 24 24h72" fill="#cbd5e1"/>
+
+  <!-- PDF Red Tab Badge -->
+  <rect x="96" y="140" width="130" height="48" rx="8" fill="url(#badgeGrad)"/>
+  <text x="161" y="174" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="28" font-weight="900" fill="#ffffff" text-anchor="middle">PDF</text>
+
+  <!-- Accessibility Symbol inside document -->
+  <!-- Outer circle -->
+  <circle cx="256" cy="300" r="88" fill="none" stroke="url(#a11yGrad)" stroke-width="16"/>
+  <!-- Head -->
+  <circle cx="256" cy="252" r="20" fill="url(#a11yGrad)"/>
+  <!-- Torso & Legs -->
+  <path d="M256 276v48m-28 44l28-44 28 44" stroke="url(#a11yGrad)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Outstretched Arms -->
+  <path d="M200 290h112" stroke="url(#a11yGrad)" stroke-width="14" stroke-linecap="round"/>
+</svg>
