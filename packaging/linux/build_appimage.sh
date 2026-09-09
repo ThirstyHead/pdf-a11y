@@ -21,7 +21,7 @@ echo "==> Building PyInstaller bundle..."
 pyinstaller --noconfirm --clean "${REPO_ROOT}/packaging/specs/pdf-a11y-gui.spec"
 
 echo "==> Populating AppDir..."
-cp -r "${DIST_DIR}/${APP_NAME}/"* "${APP_DIR}/usr/bin/"
+cp -r "${DIST_DIR}/pdf-a11y-gui/"* "${APP_DIR}/usr/bin/"
 cp "${REPO_ROOT}/packaging/linux/pdf-a11y.desktop" "${APP_DIR}/usr/share/applications/"
 cp "${REPO_ROOT}/packaging/linux/pdf-a11y.desktop" "${APP_DIR}/"
 cp "${REPO_ROOT}/packaging/icons/pdf-a11y.png" "${APP_DIR}/usr/share/icons/hicolor/256x256/apps/"
@@ -38,6 +38,7 @@ EOF
 chmod +x "${APP_DIR}/AppRun"
 
 if command -v appimagetool >/dev/null 2>&1; then
+  export APPIMAGE_EXTRACT_AND_RUN=1
   appimagetool "${APP_DIR}" "${OUT_DIR}/${APP_NAME}-v${VERSION}-x86_64.AppImage"
   echo "==> AppImage built successfully: ${OUT_DIR}/${APP_NAME}-v${VERSION}-x86_64.AppImage"
 else

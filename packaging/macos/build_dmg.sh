@@ -18,7 +18,16 @@ rm -rf "${STAGING_DIR}"
 mkdir -p "${STAGING_DIR}"
 
 echo "==> Building macOS .app bundle using PyInstaller..."
-"${REPO_ROOT}/.venv/bin/pyinstaller" --noconfirm --clean "${REPO_ROOT}/packaging/specs/pdf-a11y-gui.spec"
+PYINSTALLER_BIN="${REPO_ROOT}/.venv/bin/pyinstaller"
+if [ ! -x "${PYINSTALLER_BIN}" ]; then
+  PYINSTALLER_BIN="$(command -v pyinstaller || true)"
+fi
+if [ -z "${PYINSTALLER_BIN}" ]; then
+  echo "Error: pyinstaller executable not found."
+  exit 1
+fi
+
+"${PYINSTALLER_BIN}" --noconfirm --clean "${REPO_ROOT}/packaging/specs/pdf-a11y-gui.spec"
 
 if [ ! -d "${DIST_DIR}/${APP_NAME}.app" ]; then
   echo "Error: ${DIST_DIR}/${APP_NAME}.app was not generated."
