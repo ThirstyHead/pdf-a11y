@@ -11,3 +11,5 @@ tests/tmp/
 tests/fixtures/tmp/
 *-a11y-report.*
 *-audit.json
+files/
+packaging/icons/

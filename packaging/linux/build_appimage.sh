@@ -38,6 +38,7 @@ EOF
 chmod +x "${APP_DIR}/AppRun"
 
 if command -v appimagetool >/dev/null 2>&1; then
+  export APPIMAGE_EXTRACT_AND_RUN=1
   appimagetool "${APP_DIR}" "${OUT_DIR}/${APP_NAME}-v${VERSION}-x86_64.AppImage"
   echo "==> AppImage built successfully: ${OUT_DIR}/${APP_NAME}-v${VERSION}-x86_64.AppImage"
 else
