@@ -59,16 +59,16 @@ def _catalog_facts(path: Path) -> dict:
     with pikepdf.open(path) as pdf:
         c = pdf.Root
         facts = {
-            "lang": str(c.Lang) if "Lang" in c else None,
-            "marked": bool(c.MarkInfo.Marked) if "MarkInfo" in c else False,
-            "struct_tree": "StructTreeRoot" in c,
+            "lang": str(c.Lang) if "/Lang" in c else None,
+            "marked": bool(c.MarkInfo.Marked) if "/MarkInfo" in c else False,
+            "struct_tree": "/StructTreeRoot" in c,
             "info_title": "",
             "dc_title": "",
             "producer": "",
         }
-        info = pdf.trailer.get("Info")
-        if info is not None and "Title" in info:
-            facts["info_title"] = str(info.Title)
+        info = pdf.trailer.get("/Info")
+        if info is not None and "/Title" in info:
+            facts["info_title"] = str(info["/Title"])
         try:
             meta = pdf.open_metadata()
             facts["dc_title"] = str(meta.get("dc:title", ""))

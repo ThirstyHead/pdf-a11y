@@ -78,10 +78,16 @@ def _report_plan(args):
     <stem>-a11y-report.json. Output defaults land in the CWD, never next to
     the source.
     """
-    fmts = list(getattr(args, "formats", None) or [])
+    raw_fmts = list(getattr(args, "formats", None) or [])
     report = getattr(args, "report", None)
     if report:
-        fmts.append("md")
+        raw_fmts.append("md")
+    fmts = []
+    for f in raw_fmts:
+        for part in f.split(","):
+            part = part.strip().lower()
+            if part:
+                fmts.append(part)
     seen, plan = set(), []
     stem = Path(getattr(args, "file", "") or "report").stem or "report"
     for f in fmts:
@@ -94,6 +100,8 @@ def _report_plan(args):
             plan.append((f, f"{stem}-a11y-report.json"))
         elif f == "html":
             plan.append((f, f"{stem}.html"))
+        elif f == "pdf":
+            plan.append((f, f"{stem}.report.pdf"))
     return plan
 
 
@@ -134,11 +142,25 @@ def _write_reports(args, result, remediation=None, stats=None, live_enrich=None)
                               lang=result.get("language") or "en")
             Path(out).write_text(doc)
             written.append((fmt, out, source))
+        elif fmt == "pdf":
+            if enrichment is None and live_enrich is not None:
+                enrichment, source = build_enrichment(result, live=live_enrich)
+            md_text = render_md(result, remediation=remediation,
+                                source_path=getattr(args, "file", None),
+                                enrichment=enrichment,
+                                enrichment_source=source, stats=stats)
+            doc = render_html(md_text, theme=theme,
+                              lang=result.get("language") or "en")
+            from .reports.pdf import render_pdf
+            render_pdf(doc, theme=theme, out_path=out, lang=result.get("language") or "en")
+            written.append((fmt, out, source))
     for fmt, out, source in written:
         if fmt == "md":
             print(f"report written: {out} (normative text: {source})")
         elif fmt == "html":
             print(f"report written: {out} (html, theme: {theme})")
+        elif fmt == "pdf":
+            print(f"report written: {out} (pdf, theme: {theme})")
         else:
             print(f"report written: {out} (json)")
     return written
@@ -393,14 +415,13 @@ def main(argv=None) -> int:
                    help="write the markdown report to PATH "
                         "(alias for --format md with an explicit path)")
     a.add_argument("--format", dest="formats", action="append", default=None,
-                   choices=["md", "json", "html"], metavar="FMT",
-                   help="report format to write, repeatable (md, json, html; "
-                        "the tagged-pdf format lands in the 0.5.0 report "
-                        "phases). md defaults to <stem>-a11y-report.md in the "
-                        "CWD unless --report gives the path; json writes "
-                        "<stem>-a11y-report.json; html writes <stem>.html")
+                   metavar="FMT",
+                   help="report format to write, repeatable or comma-separated "
+                        "(md, json, html, pdf). md defaults to <stem>-a11y-report.md; "
+                        "json writes <stem>-a11y-report.json; html writes <stem>.html; "
+                        "pdf writes <stem>-a11y-report.pdf")
     a.add_argument("--theme", default=None, metavar="THEME",
-                   help="theme for --format html (default: light; see "
+                   help="theme for --format html and pdf (default: light; see "
                         "--help for bundled: light, dark, high-contrast, "
                         "ocean, forest, print)")
     _add_fix_flags(a, scaffold_default=False)
@@ -426,11 +447,9 @@ def main(argv=None) -> int:
                          "section) to PATH (alias for --format md with an "
                          "explicit path)")
     fx.add_argument("--format", dest="formats", action="append", default=None,
-                    choices=["md", "json"], metavar="FMT",
-                    help="report format to write, repeatable (md, json; html/pdf "
-                         "land in the 0.5.0 report phases); the report covers "
-                         "the re-audit. md defaults to <stem>-a11y-report.md "
-                         "unless --report gives the path")
+                    metavar="FMT",
+                    help="report format to write, repeatable or comma-separated "
+                         "(md, json, html, pdf)")
     _add_fix_flags(fx)
     fx.add_argument("--enrich", action="store_true",
                     help="fetch normative text live from wcag-guidelines-mcp for --report")
