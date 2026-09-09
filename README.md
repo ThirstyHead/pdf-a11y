@@ -19,17 +19,20 @@ Part of the **Four-Tool Office & Document Accessibility Suite**:
 Pre-built desktop installers with bundled dependencies (including PySide6/Qt) are available on the [GitHub Releases](https://github.com/ThirstyHead/pdf-a11y/releases) page:
 
 - **macOS (`.dmg`)**:
-  1. Download `pdf-a11y-v<version>-macos.dmg`.
+  1. Download `pdf-a11y-v<version>-macos.dmg` (e.g. `pdf-a11y-v0.6.0-macos.dmg`).
   2. Double-click to mount the disk image.
   3. Drag `pdf-a11y.app` into `/Applications`.
   4. Launch `pdf-a11y` from Spotlight, Launchpad, or the Applications folder.
+  > **Note (macOS Gatekeeper)**: Because `pdf-a11y` is an open-source binary distributed outside the Mac App Store without paid Apple Developer notarization, macOS blocks first launch with *“Apple could not verify pdf-a11y is free of malware”*.
+  > - **GUI bypass**: Right-click (or Control-click) `pdf-a11y.app` in `/Applications`, select **Open**, and click **Open**. Alternatively, go to **System Settings > Privacy & Security**, scroll down to the **Security** section, and click **Open Anyway**.
+  > - **Terminal bypass**: Run `xattr -cr /Applications/pdf-a11y.app` (or `xattr -d com.apple.quarantine ~/Downloads/pdf-a11y-*-macos.dmg` before opening the DMG).
 - **Windows (`.exe`)**:
-  1. Download `pdf-a11y-v<version>-windows-setup.exe`.
+  1. Download `pdf-a11y-setup-v<version>.exe` (e.g. `pdf-a11y-setup-v0.6.0.exe`).
   2. Run the installer wizard to install into `Program Files` and create Start Menu / Desktop shortcuts.
 - **Linux (`.AppImage`)**:
-  1. Download `pdf-a11y-v<version>-x86_64.AppImage`.
-  2. Make it executable: `chmod +x pdf-a11y-v<version>-x86_64.AppImage`.
-  3. Run directly: `./pdf-a11y-v<version>-x86_64.AppImage`.
+  1. Download `pdf-a11y-v<version>-x86_64.AppImage` (e.g. `pdf-a11y-v0.6.0-x86_64.AppImage`).
+  2. Make it executable: `chmod +x pdf-a11y-v*-x86_64.AppImage`.
+  3. Run directly: `./pdf-a11y-v*-x86_64.AppImage`.
 
 ### 2. Standalone Headless CLI Binary (No Python Required)
 
@@ -37,9 +40,9 @@ Single-file headless CLI executables are available on [GitHub Releases](https://
 
 ```bash
 # Example: Download macOS Apple Silicon standalone CLI binary
-curl -LO https://github.com/ThirstyHead/pdf-a11y/releases/latest/download/pdf-a11y-macos-arm64
-chmod +x pdf-a11y-macos-arm64
-sudo mv pdf-a11y-macos-arm64 /usr/local/bin/pdf-a11y
+curl -LO https://github.com/ThirstyHead/pdf-a11y/releases/latest/download/pdf-a11y-cli-macos-arm64
+chmod +x pdf-a11y-cli-macos-arm64
+sudo mv pdf-a11y-cli-macos-arm64 /usr/local/bin/pdf-a11y
 
 # Verify installation
 pdf-a11y --help

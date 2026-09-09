@@ -34,6 +34,9 @@ if [ ! -d "${DIST_DIR}/${APP_NAME}.app" ]; then
   exit 1
 fi
 
+echo "==> Ensuring clean ad-hoc code signature across bundle..."
+codesign --force --deep -s - "${DIST_DIR}/${APP_NAME}.app"
+
 echo "==> Staging app bundle for DMG creation..."
 cp -R "${DIST_DIR}/${APP_NAME}.app" "${STAGING_DIR}/"
 
