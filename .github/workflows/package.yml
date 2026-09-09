@@ -30,11 +30,11 @@ jobs:
       - name: Generate Icon Assets
         run: python packaging/scripts/generate_icons.py
 
-      - name: Build Headless Standalone CLI Binary
-        run: pyinstaller --noconfirm --clean packaging/specs/pdf-a11y-cli.spec
-
       - name: Build macOS GUI App & DMG
         run: ./packaging/macos/build_dmg.sh
+
+      - name: Build Headless Standalone CLI Binary
+        run: pyinstaller --noconfirm packaging/specs/pdf-a11y-cli.spec
 
       - name: Rename CLI binary for release
         run: |
@@ -72,18 +72,26 @@ jobs:
       - name: Generate Icon Assets
         run: python packaging/scripts/generate_icons.py
 
-      - name: Build Headless CLI Binary
-        run: pyinstaller --noconfirm --clean packaging/specs/pdf-a11y-cli.spec
-
       - name: Build Desktop GUI Directory Bundle
         run: pyinstaller --noconfirm --clean packaging/specs/pdf-a11y-gui.spec
 
+      - name: Build Headless CLI Binary
+        run: pyinstaller --noconfirm packaging/specs/pdf-a11y-cli.spec
+
       - name: Compile Inno Setup Installer
+        shell: pwsh
         run: |
-          mkdir dist\windows
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging/windows/pdf-a11y.iss
+          New-Item -ItemType Directory -Force -Path dist\windows
+          if (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe") {
+            & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging/windows/pdf-a11y.iss
+          } elseif (Test-Path "C:\Program Files\Inno Setup 6\ISCC.exe") {
+            & "C:\Program Files\Inno Setup 6\ISCC.exe" packaging/windows/pdf-a11y.iss
+          } else {
+            iscc packaging/windows/pdf-a11y.iss
+          }
 
       - name: Rename CLI binary for release
+        shell: pwsh
         run: |
           Move-Item -Path dist\pdf-a11y.exe -Destination dist\pdf-a11y-cli-windows-x86_64.exe
 
@@ -125,11 +133,11 @@ jobs:
       - name: Generate Icon Assets
         run: python packaging/scripts/generate_icons.py
 
-      - name: Build Headless CLI Binary
-        run: pyinstaller --noconfirm --clean packaging/specs/pdf-a11y-cli.spec
-
       - name: Build Desktop GUI AppImage
         run: ./packaging/linux/build_appimage.sh
+
+      - name: Build Headless CLI Binary
+        run: pyinstaller --noconfirm packaging/specs/pdf-a11y-cli.spec
 
       - name: Rename CLI binary for release
         run: |

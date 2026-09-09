@@ -21,7 +21,7 @@ echo "==> Building PyInstaller bundle..."
 pyinstaller --noconfirm --clean "${REPO_ROOT}/packaging/specs/pdf-a11y-gui.spec"
 
 echo "==> Populating AppDir..."
-cp -r "${DIST_DIR}/${APP_NAME}/"* "${APP_DIR}/usr/bin/"
+cp -r "${DIST_DIR}/pdf-a11y-gui/"* "${APP_DIR}/usr/bin/"
 cp "${REPO_ROOT}/packaging/linux/pdf-a11y.desktop" "${APP_DIR}/usr/share/applications/"
 cp "${REPO_ROOT}/packaging/linux/pdf-a11y.desktop" "${APP_DIR}/"
 cp "${REPO_ROOT}/packaging/icons/pdf-a11y.png" "${APP_DIR}/usr/share/icons/hicolor/256x256/apps/"

@@ -71,7 +71,7 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='pdf-a11y',
+    name='pdf-a11y-gui',
 )
 
 if sys.platform == 'darwin':
