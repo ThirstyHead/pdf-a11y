@@ -19,7 +19,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install system dependencies for headless Qt
         run: |
-          sudo apt-get update
+          sudo rm -f /etc/apt/sources.list.d/google*.list || true
+          sudo apt-get update -o Acquire::Retries=3 || true
           sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libdbus-1-3
       - name: Install dependencies
         run: |

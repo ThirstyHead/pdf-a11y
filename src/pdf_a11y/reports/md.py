@@ -12,7 +12,7 @@ document, never to people. Banned: "suffer from", "suffers", "handicapped",
 "normal users", "this document is broken/inaccessible to disabled users".
 """
 import json
-from typing import Optional
+from typing import Any, Optional, Set
 
 from .meta import (
     POUR_INTROS,
@@ -283,13 +283,19 @@ def _finding_block(f: dict, enrichment: Optional[dict]) -> list:
 def render_md(result: dict, remediation=None, source_path=None,
               enrichment: Optional[dict] = None, stats: Optional[dict] = None,
               regulatory_context: bool = False,
-              enrichment_source: Optional[str] = None) -> str:
+              enrichment_source: Optional[str] = None,
+              excluded_sc: Optional[Any] = None) -> str:
     """Render the audit report as Markdown (source of truth, 1a)."""
     from pathlib import Path
     enrichment = enrichment or {}
     src = source_path or result.get("file", "document.pdf")
     summary = result["summary"]
     findings = result["findings"]
+    active_excluded = set(excluded_sc or set())
+    for f in findings:
+        if f.get("sc") in active_excluded or f.get("excluded"):
+            f["excluded"] = True
+
     verdict = "PASS" if summary["pass"] else "FAIL"
 
     L = []
@@ -309,6 +315,14 @@ def render_md(result: dict, remediation=None, source_path=None,
     L.append("")
     L.extend(_summary_banner(summary["total"], stats, verdict))
     L.append("")
+
+    if active_excluded or any(f.get("excluded") for f in findings):
+        L.append("### What-If Analysis & Excluded Criteria")
+        L.append("")
+        L.append("Some WCAG criteria were excluded from active blocking compliance checks via user criteria configuration:")
+        for sc in sorted(active_excluded):
+            L.append(f"- `[ ] {sc}` [EXCLUDED]")
+        L.append("")
 
     by_pour = {p: [] for p, _ in PRINCIPLES}
     for f in findings:
