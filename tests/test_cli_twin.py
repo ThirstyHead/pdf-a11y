@@ -1,4 +1,4 @@
-"""Tests for the unified CLI twin interface matching docx-a11y, pptx-a11y, and xslx-a11y."""
+"""Tests for the unified CLI twin interface matching docx-a11y, pptx-a11y, and xlsx-a11y."""
 from pathlib import Path
 import pytest
 from pdf_a11y.cli import main

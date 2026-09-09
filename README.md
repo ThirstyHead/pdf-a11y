@@ -5,7 +5,7 @@ Audit and remediate PDF files against **WCAG 2.1/2.2 AA** and **PDF/UA-1 (ISO 14
 Part of the **Four-Tool Office & Document Accessibility Suite**:
 - `docx-a11y`: Word documents (.docx)
 - `pptx-a11y`: PowerPoint presentations (.pptx)
-- `xslx-a11y`: Excel workbooks (.xlsx)
+- `xlsx-a11y`: Excel workbooks (.xlsx)
 - `pdf-a11y`: Portable Document Format (.pdf)
 
 `pdf-a11y` is a rule-based auditor over the PDF object structure (catalog, page resources, marked content streams, `/StructTreeRoot`). It reports every barrier with a WCAG success criterion and persona impact mapping, supports interactive author triage, applies deterministic remediations without ever touching the source file, and renders accessible reports in Markdown, HTML, JSON, and tagged PDF.
@@ -14,7 +14,7 @@ Part of the **Four-Tool Office & Document Accessibility Suite**:
 
 ## Sibling Parity & Feature Matrix
 
-| Feature | `docx-a11y` | `pptx-a11y` | `xslx-a11y` | `pdf-a11y` |
+| Feature | `docx-a11y` | `pptx-a11y` | `xlsx-a11y` | `pdf-a11y` |
 |---|:---:|:---:|:---:|:---:|
 | **Root CLI Syntax** | Yes | Yes | Yes | Yes |
 | **Deterministic Remediation** | Yes | Yes | Yes | Yes |
