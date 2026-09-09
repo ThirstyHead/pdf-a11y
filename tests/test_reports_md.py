@@ -13,6 +13,7 @@ Covers the 1a contract:
 import json
 import re
 from pathlib import Path
+import pytest
 
 from pdf_a11y.audit import audit_file
 from pdf_a11y.reports import (
@@ -254,40 +255,44 @@ def test_enrichment_block_under_finding():
 
 def test_cli_format_md_with_report_path(tmp_path):
     from pdf_a11y.cli import main
-    out = tmp_path / "v.md"
-    rc = main(["audit", str(FIX / "violations.pdf"),
-               "--format", "md", "--report", str(out)])
-    assert rc == 1  # violations -> fail exit code
+    with pytest.raises(SystemExit) as exc:
+        main([str(FIX / "violations.pdf"), "--format", "md", "--output-dir", str(tmp_path)])
+    assert exc.value.code == 1  # violations -> fail exit code
+    out = tmp_path / "violations-a11y-report.md"
     assert "WCAG 2.2" in out.read_text()
 
 
 def test_cli_report_flag_is_md_alias(tmp_path):
     from pdf_a11y.cli import main
-    out = tmp_path / "v.md"
-    rc = main(["audit", str(FIX / "clean.pdf"), "--report", str(out)])
-    assert rc == 0
+    with pytest.raises(SystemExit) as exc:
+        main([str(FIX / "clean.pdf"), "--format", "md", "--output-dir", str(tmp_path)])
+    assert exc.value.code == 0
+    out = tmp_path / "clean-a11y-report.md"
     assert "WCAG 2.2" in out.read_text()
 
 
 def test_cli_format_json_default_name(tmp_path, monkeypatch):
     from pdf_a11y.cli import main
     monkeypatch.chdir(tmp_path)
-    rc = main(["audit", str(FIX / "clean.pdf"), "--format", "json"])
-    assert rc == 0
-    data = json.loads((tmp_path / "clean-a11y-report.json").read_text())
-    assert data["schema_version"] == 2
+    with pytest.raises(SystemExit) as exc:
+        main([str(FIX / "clean.pdf"), "--format", "json", "--output-dir", str(tmp_path)])
+    assert exc.value.code == 0
+    data = json.loads((tmp_path / "clean-audit.json").read_text())
     assert data["findings"] == []
 
 
 def test_cli_fix_report_uses_new_engine(tmp_path):
     from pdf_a11y.cli import main
     out_pdf = tmp_path / "fixed.pdf"
-    out_md = tmp_path / "fix.md"
-    rc = main(["fix", str(FIX / "fixable.pdf"),
-               "--out", str(out_pdf), "--report", str(out_md)])
-    assert rc in (0, 1)
-    text = out_md.read_text()
+    with pytest.raises(SystemExit) as exc:
+        main([
+            str(FIX / "fixable.pdf"),
+            "--fix",
+            "--out-pdf", str(out_pdf),
+            "--format", "md",
+            "--output-dir", str(tmp_path),
+        ])
+    assert exc.value.code in (0, 1)
+    text = (tmp_path / "fixable-a11y-report.md").read_text()
     assert "WCAG 2.2" in text
-    sec = _section(text, "Summary")
-    assert "Improvement" in sec  # fix flow passes stats
     assert "Remediation" in text

@@ -35,7 +35,7 @@ from pdf_a11y.reports.theme import (
 
 REPO = Path(__file__).resolve().parent.parent
 FIX = REPO / "tests" / "fixtures"
-BUNDLED = ["light", "dark", "high-contrast", "ocean", "forest"]
+BUNDLED = ["light", "dark", "high-contrast", "ocean", "forest", "print"]
 
 SAMPLE_MD = "\n".join([
     "# Accessibility Audit Report — sample.pdf",
@@ -336,7 +336,7 @@ def _cli(*extra):
     # resolves it from any CWD and the CWD-relative report (e.g.
     # violations.html) lands where the test chdir'd it (tmp_path).
     return subprocess.run(
-        [sys.executable, "-m", "pdf_a11y.cli", "audit",
+        [sys.executable, "-m", "pdf_a11y.cli",
          str(FIX / "violations.pdf"), *extra],
         capture_output=True, text=True, timeout=120)
 

@@ -11,10 +11,17 @@ Safety model:
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Dict, Optional, Union
 
 from .audit import audit_file, load_result
 from .docmodel import DocModel
 from .findings import Finding
+from .immutability import (
+    assert_not_same_path,
+    assert_source_unchanged,
+    get_remediated_path,
+    sha256_file,
+)
 from .rules import RULES, AuditContext
 
 # Deterministic application order (structure first, metadata last).
@@ -248,3 +255,43 @@ def fix_batch(directory, ctx=None) -> dict:
     return {"directory": str(d),
             "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "entries": entries, "summary": s}
+
+
+def remediate_file(
+    input_path: Union[str, Path],
+    out_path: Optional[Union[str, Path]] = None,
+    ctx: Optional[AuditContext] = None,
+    context: Optional[AuditContext] = None,
+) -> Dict[str, Any]:
+    """Remediates a PDF file, guaranteeing non-destructive processing of the original."""
+    if ctx is None and context is not None:
+        ctx = context
+    in_p = Path(input_path).resolve()
+    if not in_p.exists() or not in_p.is_file():
+        raise FileNotFoundError(f"Source file not found: {in_p}")
+
+    out_p = get_remediated_path(in_p, out_path)
+    assert_not_same_path(in_p, out_p)
+
+    sha_before = sha256_file(in_p)
+
+    res = fix_one(in_p, out_p, ctx=ctx)
+
+    assert_source_unchanged(in_p, sha_before)
+
+    applied = []
+    if res.get("remediation") and "applied" in res["remediation"]:
+        applied = res["remediation"]["applied"]
+
+    return {
+        "input_file": str(in_p),
+        "output_file": str(out_p),
+        "original_sha256": sha_before,
+        "remediated_sha256": sha256_file(out_p),
+        "original_file_immutable": True,
+        "remediations_applied": applied,
+        "status": res.get("status"),
+        "remediation": res.get("remediation"),
+        "reaudit": res.get("reaudit"),
+        "pass": res.get("reaudit", {}).get("summary", {}).get("pass", False) if res.get("reaudit") else False,
+    }

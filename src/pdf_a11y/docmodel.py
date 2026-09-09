@@ -618,9 +618,14 @@ class DocModel:
                 meta["dc:title"] = t
         return n_elements
 
-    def save(self, out_path):
+    def save(self, out_path, *, linearize=False, deterministic_id=True, **kwargs):
         out_path = Path(out_path)
-        self.doc.save(str(out_path), linearize=False)
+        self.doc.save(
+            str(out_path),
+            linearize=linearize,
+            deterministic_id=deterministic_id,
+            **kwargs,
+        )
         self.path = out_path
         self.catalog = self.doc.Root
         self.pages = list(self.doc.pages)

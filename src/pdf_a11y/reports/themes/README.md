@@ -20,6 +20,10 @@ Contrast gate (enforced by `tests/test_reports_html.py`):
 Severity is additionally signalled by weight + underline (`.sev`), so color
 is never the only cue (needed for the 1c print rendering too).
 
+`print` is the fixed black-on-white theme (all severity tokens black,
+code-bg white): the 1c tagged-PDF rendering renders with it, so the PDF is
+theme-independent and severity survives grayscale/monochrome print.
+
 ## Theme manifest (theme.json)
 
 `{"name": str, "label": str, "mode": "light"|"dark", "default": bool}`

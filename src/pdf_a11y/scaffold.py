@@ -199,6 +199,181 @@ def _scan(data: bytes) -> List[dict]:
     return units
 
 
+def _scan_units(data: bytes) -> List[dict]:
+    """Scan a page content stream into one record per text object (line).
+
+    Unlike ``_scan`` (one record per top-level BT..ET span), this emits a unit
+    for each text object so that producers that pack several lines into a
+    single BT..ET (PyMuPDF Story, WeasyPrint) scaffold correctly. A text
+    object begins at a ``Tm`` or ``Td`` and runs to the next ``Tm``/``Td`` (or
+    ``ET``). ``Tf`` is graphics state and persists across BT/ET, so each unit
+    records the size in effect at the object's first text-painting op — not a
+    per-block value that resets at BT (which is what made inherited-font lines
+    read as 1.0pt).
+
+    Returns records ``{"start","end","ctm","tm","tf"}`` in stream order whose
+    ``[start,end)`` regions tile each BT..ET span (non-overlapping, strictly
+    increasing) so ``DocModel.build_scaffold`` can wrap each in BDC/EMC. ``tm``
+    is the text matrix (the ``Tm`` value, or IDENTITY for ``Td``-positioned
+    objects, matching the historical Td behavior). A BT..ET with no Tm/Td
+    yields a single unit spanning the whole block.
+    """
+    units: List[dict] = []
+    n = len(data)
+    i = 0
+    ctm_stack = [IDENTITY]
+    nums: List[float] = []
+    group_start = -1          # offset of the current operator's first operand
+    tf = 1.0                  # persistent font size (graphics state)
+    in_bt = False
+    bt_start = 0
+    objs: List[dict] = []     # completed text objects of the current block
+    obj: Dict[str, Any] = {}  # the text object being accumulated
+    ldepth = 0
+    state = 0  # 0 normal, 1 literal, 2 hex, 3 comment
+    while i < n:
+        ch = data[i]
+        if state == 0:
+            if ch == 0x28:  # '(' literal string
+                state, ldepth = 1, 1
+                i += 1
+                continue
+            if ch == 0x3C:  # '<' hex string or dict '<<'
+                if i + 1 < n and data[i + 1] == 0x3C:
+                    i += 2
+                    continue
+                state = 2
+                i += 1
+                continue
+            if ch == 0x3E:  # '>' or '>>'
+                if i + 1 < n and data[i + 1] == 0x3E:
+                    i += 2
+                    continue
+                i += 1
+                continue
+            if ch == 0x25:  # '%' comment
+                state = 3
+                i += 1
+                continue
+            if ch == 0x2F:  # '/' name
+                i += 1
+                while i < n and data[i] not in _DELIM:
+                    i += 1
+                continue
+            if ch in _WS or ch in (0x5B, 0x5D, 0x7B, 0x7D):
+                i += 1
+                continue
+            if _is_number_start(ch, data, i):
+                if group_start < 0:
+                    group_start = i
+                j = i
+                if data[j] in (0x2B, 0x2D):
+                    j += 1
+                while j < n and (_is_digit(data[j]) or data[j] == 0x2E):
+                    j += 1
+                try:
+                    nums.append(float(data[i:j].decode("latin-1")))
+                except ValueError:
+                    pass
+                if len(nums) > 16:
+                    nums.pop(0)
+                i = j
+                continue
+            # operator word
+            wstart = i
+            j = i
+            while j < n and data[j] not in _DELIM:
+                j += 1
+            word = data[i:j].decode("latin-1", "replace")
+            i = j
+            op_start = group_start if group_start >= 0 else wstart
+            if word == "BT":
+                in_bt = True
+                bt_start = op_start
+                objs = []
+                obj = {}
+            elif word == "ET":
+                if in_bt:
+                    if obj:
+                        objs.append(obj)
+                    ctm = ctm_stack[-1]
+                    if not objs:
+                        # no Tm/Td in the block: one unit for the whole span
+                        units.append({"start": bt_start, "end": i,
+                                      "ctm": ctm, "tm": IDENTITY, "tf": tf})
+                    else:
+                        for k in range(len(objs)):
+                            s = objs[k]["start"]
+                            e = (objs[k + 1]["start"]
+                                 if k + 1 < len(objs) else i)
+                            otf = objs[k]["tf"]
+                            units.append({"start": s, "end": e,
+                                          "ctm": objs[k]["ctm"],
+                                          "tm": objs[k]["tm"],
+                                          "tf": otf if otf is not None else tf})
+                    in_bt = False
+                    obj = {}
+            elif word == "Tm" and in_bt:
+                if len(nums) >= 6:
+                    if obj:
+                        objs.append(obj)
+                    obj = {"start": op_start, "tm": tuple(nums[-6:]),
+                           "ctm": ctm_stack[-1], "tf": None}
+            elif word == "Td" and in_bt:
+                if len(nums) >= 2:
+                    if obj:
+                        objs.append(obj)
+                    # Td is a relative move; keep tm=IDENTITY (historical Td
+                    # behavior) so Td-based documents scaffold as before.
+                    obj = {"start": op_start, "tm": IDENTITY,
+                           "ctm": ctm_stack[-1], "tf": None}
+            elif word == "Tf":
+                if len(nums) >= 1:
+                    tf = nums[-1]
+            elif word in ("Tj", "TJ", "'", '"') and in_bt:
+                # first text-paint of the object fixes its font size
+                if obj and obj.get("tf") is None:
+                    obj["tf"] = tf
+            elif word == "cm":
+                if len(nums) >= 6:
+                    ctm_stack[-1] = _mat_mul(tuple(nums[-6:]), ctm_stack[-1])
+            elif word == "q":
+                ctm_stack.append(ctm_stack[-1])
+            elif word == "Q":
+                if len(ctm_stack) > 1:
+                    ctm_stack.pop()
+            nums = []
+            group_start = -1
+            continue
+        if state == 1:  # literal string
+            if ch == 0x5C:  # backslash escapes next byte
+                i += 2
+                continue
+            if ch == 0x28:  # nested '('
+                ldepth += 1
+                i += 1
+                continue
+            if ch == 0x29:  # ')'
+                ldepth -= 1
+                if ldepth <= 0:
+                    state = 0
+                i += 1
+                continue
+            i += 1
+            continue
+        if state == 2:  # hex string
+            if ch == 0x3E:
+                state = 0
+            i += 1
+            continue
+        if state == 3:  # comment
+            if ch == 0x0A:
+                state = 0
+            i += 1
+            continue
+    return units
+
+
 def split_text_units(data: bytes) -> List[slice]:
     """Return slices of the top-level BT..ET spans in ``data`` (string-aware)."""
     return [slice(u["start"], u["end"]) for u in _scan(data)]
@@ -243,7 +418,14 @@ def unit_device_size(unit: TextUnit) -> float:
 
 
 def extract_units(doc_path) -> List[TextUnit]:
-    """All text units in (page, stream) order for the whole document."""
+    """All text units in (page, stream) order for the whole document.
+
+    One unit per text object (``Tm``/``Td``-positioned line), so producers
+    that pack many lines into a single ``BT..ET`` (PyMuPDF Story,
+    WeasyPrint) scaffold correctly. ``tf`` is the font size in effect at the
+    object's first draw — persistent across ``BT``/``ET`` — never a reset
+    1.0 for inherited-font lines.
+    """
     from .docmodel import key
     import pikepdf
     with pikepdf.open(str(Path(doc_path))) as doc:
@@ -256,7 +438,7 @@ def extract_units(doc_path) -> List[TextUnit]:
                 data = b"".join(bytes(x.read_bytes()) for x in c)
             else:
                 data = bytes(c.read_bytes())
-            for u in _scan(data):
+            for u in _scan_units(data):
                 units.append(TextUnit(page=pi, start=u["start"], end=u["end"],
                                       ctm=u["ctm"], tm=u["tm"], tf=u["tf"]))
     return units
@@ -296,7 +478,12 @@ def fill_unit_alt(units: List[TextUnit], doc_path) -> None:
                 if abs(s["size"] - u_size) >= 0.25:
                     continue
                 x0, x1 = s["bbox"][0], s["bbox"][2]
-                overlap = max(0.0, min(x1, u_x + 60) - max(x0, u_x))
+                # A unit renders one line; its on-page width is the span's own
+                # width when the span starts at the unit origin (a full-line
+                # heading/paragraph), else the historical 60pt window (so a
+                # hanging bullet/marker unit keeps its short marker).
+                unit_right = x1 if abs(x0 - u_x) <= 6.0 else u_x + 60.0
+                overlap = max(0.0, min(x1, unit_right) - max(x0, u_x))
                 span_w = max(1.0, x1 - x0)
                 if overlap < 0.3 * span_w:
                     continue
@@ -304,7 +491,10 @@ def fill_unit_alt(units: List[TextUnit], doc_path) -> None:
             if best:
                 def _start(s: dict) -> float:
                     return abs(s["bbox"][0] - u_x)
-                best.sort(key=lambda s: (round(_start(s), 1), s["bbox"][0]))
+                # start-near, then widest (full text over a short lead-in)
+                best.sort(key=lambda s: (round(_start(s), 1),
+                                         -(s["bbox"][2] - s["bbox"][0]),
+                                         s["bbox"][0]))
                 u.alt = best[0]["text"].strip()
 
 

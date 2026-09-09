@@ -20,12 +20,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7"]
+dev = ["pytest>=7", "pytest-qt>=4"]
 ocr = ["pytesseract>=0.3", "Pillow>=10"]
 gui = ["PySide6>=6.5"]
+all = ["pdf-a11y[dev,ocr,gui]"]
 
 [project.scripts]
 pdf-a11y = "pdf_a11y.cli:main"
+pdf-a11y-gui = "pdf_a11y.gui:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

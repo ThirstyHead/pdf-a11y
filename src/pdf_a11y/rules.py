@@ -43,6 +43,7 @@ class AuditContext:
 
     source_name: str = "document.pdf"
     default_language: str = "en-US"
+    title: Optional[str] = None
     background_rgb: str = "FFFFFF"          # assumed page background for contrast
     large_text_size_pt: float = 18.0
     large_text_bold_pt: float = 14.0
@@ -995,6 +996,8 @@ RULES_BY_ID = {r.rule_id: r for r in RULES}
 
 def _pick_title(dm, ctx) -> Optional[str]:
     """Deterministic title candidates, in priority order."""
+    if getattr(ctx, "title", None):
+        return str(ctx.title).strip()
     # 1. first H1 structural element
     st = dm.struct_tree()
     if st is not None:

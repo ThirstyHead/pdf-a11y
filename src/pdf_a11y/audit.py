@@ -11,6 +11,7 @@ def audit_file(path, ctx=None) -> dict:
     Result shape:
     {
       "file": str,
+      "sha256": hex-string,
       "audited_at": iso8601,
       "tool": "pdf-a11y/0.1.0",
       "findings": [ {rule_id, sc, severity, location, description, evidence, fixable, fix}, ... ],
@@ -18,8 +19,10 @@ def audit_file(path, ctx=None) -> dict:
     }
     """
     from .docmodel import DocModel
+    from .immutability import sha256_file
     from . import __version__
 
+    sha = sha256_file(path)
     with DocModel.open(path) as dm:
         if ctx is None:
             from pathlib import Path
@@ -36,6 +39,7 @@ def audit_file(path, ctx=None) -> dict:
                                         "Fix the rule; treat as manual review."))
     return {
         "file": str(path).rsplit("/", 1)[-1],
+        "sha256": sha,
         "audited_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "tool": f"pdf-a11y/{__version__}",
         "findings": [f.to_dict() for f in findings_sorted(findings)],

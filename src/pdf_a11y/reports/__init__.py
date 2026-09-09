@@ -27,6 +27,7 @@ from .md import (
     report_json,
 )
 from .html import render_html
+from .pdf import render_pdf
 from .theme import BUNDLED_THEMES, available_themes, theme_css
 
 __all__ = [
@@ -42,6 +43,7 @@ __all__ = [
     "compute_stats",
     "render_html",
     "render_md",
+    "render_pdf",
     "report_json",
     "theme_css",
 ]

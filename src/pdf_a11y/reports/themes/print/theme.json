@@ -1,0 +1,6 @@
+{
+  "name": "print",
+  "label": "Print (black & white)",
+  "mode": "light",
+  "default": false
+}

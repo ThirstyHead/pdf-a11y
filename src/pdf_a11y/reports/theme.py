@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 
 BUNDLED_DIR = Path(__file__).parent / "themes"
-BUNDLED_THEMES = ["light", "dark", "high-contrast", "ocean", "forest"]
+BUNDLED_THEMES = ["light", "dark", "high-contrast", "ocean", "forest", "print"]
 
 _TOKENS = ("--bg", "--fg", "--muted", "--accent", "--link", "--code-bg",
            "--sev-critical", "--sev-serious", "--sev-moderate", "--sev-minor")

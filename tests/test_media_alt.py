@@ -347,14 +347,16 @@ def test_fix_one_applies_placeholder(tmp_path):
 
 
 def test_cli_fix_media_placeholder(tmp_path, capsys):
+    import pytest
     from pdf_a11y.cli import main
     d = pikepdf.new()
     p = _page(d)
     _add_form(d, p)
     path = _save(d, tmp_path)
     out = tmp_path / "fixed.pdf"
-    rc = main(["fix", str(path), "--media-placeholder", "--out", str(out)])
-    assert rc in (0, 1)
+    with pytest.raises(SystemExit) as exc:
+        main([str(path), "--fix", "--media-placeholder", "--out-pdf", str(out)])
+    assert exc.value.code in (0, 1)
     re = audit_file(str(out))
     assert not [f for f in re["findings"] if f["rule_id"] == "media-no-alt"]
 
@@ -362,14 +364,16 @@ def test_cli_fix_media_placeholder(tmp_path, capsys):
 def test_cli_fix_default_keeps_media_finding(tmp_path, capsys):
     """Without --media-placeholder the fix is manual: the re-audit still
     reports the (now fixable=False) media finding."""
+    import pytest
     from pdf_a11y.cli import main
     d = pikepdf.new()
     p = _page(d)
     _add_form(d, p)
     path = _save(d, tmp_path)
     out = tmp_path / "fixed.pdf"
-    rc = main(["fix", str(path), "--out", str(out)])
-    assert rc in (0, 1)
+    with pytest.raises(SystemExit) as exc:
+        main([str(path), "--fix", "--out-pdf", str(out)])
+    assert exc.value.code in (0, 1)
     re = audit_file(str(out))
     ms = [f for f in re["findings"] if f["rule_id"] == "media-no-alt"]
     assert len(ms) == 1

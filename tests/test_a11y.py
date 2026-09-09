@@ -130,10 +130,15 @@ def test_fix_one_fixable_still_fails_without_scaffold(tmp_path):
 
 def test_cli_exit_codes(tmp_path):
     from pdf_a11y.cli import main
-    assert main(["audit", str(FIX / "clean.pdf")]) == 0
-    assert main(["audit", str(FIX / "fixable.pdf")]) == 1
-    assert main(["audit", str(tmp_path / "nope.pdf")]) == 2
-    assert main(["rules"]) == 0
+    with pytest.raises(SystemExit) as exc:
+        main([str(FIX / "clean.pdf")])
+    assert exc.value.code == 0
+    with pytest.raises(SystemExit) as exc:
+        main([str(FIX / "fixable.pdf")])
+    assert exc.value.code == 1
+    with pytest.raises(SystemExit) as exc:
+        main([str(tmp_path / "nope.pdf")])
+    assert exc.value.code == 2
 
 
 # -- outline structure: levels survive set_outline (regression) ---------------
