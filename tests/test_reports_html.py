@@ -223,8 +223,9 @@ def test_skip_link_and_toc_nav():
 # ---------------------------------------------------------------------------
 
 def test_byte_deterministic():
-    a = render_html(_md_from_fixture("violations.pdf"), theme="dark")
-    b = render_html(_md_from_fixture("violations.pdf"), theme="dark")
+    md = _md_from_fixture("violations.pdf")
+    a = render_html(md, theme="dark")
+    b = render_html(md, theme="dark")
     assert a == b
 
 
