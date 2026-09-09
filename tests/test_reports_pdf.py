@@ -41,9 +41,10 @@ def _md_from_fixture(name: str) -> str:
 
 
 def _report_pdf(name: str, tmp_path: Path, theme: str = "light",
-                suffix: str = "report") -> Path:
+                suffix: str = "report", md: str | None = None) -> Path:
     """Full 1c pipeline: audit -> md -> html -> tagged PDF. Returns the path."""
-    md = _md_from_fixture(name)
+    if md is None:
+        md = _md_from_fixture(name)
     html = render_html(md, theme=theme)
     out = tmp_path / f"{suffix}.report.pdf"
     return render_pdf(html, theme=theme, out_path=out)
@@ -139,8 +140,9 @@ def test_render_pdf_self_audit_pass(tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_render_pdf_byte_deterministic(tmp_path):
-    a = _report_pdf("violations.pdf", tmp_path, suffix="a")
-    b = _report_pdf("violations.pdf", tmp_path, suffix="b")
+    md = _md_from_fixture("violations.pdf")
+    a = _report_pdf("violations.pdf", tmp_path, suffix="a", md=md)
+    b = _report_pdf("violations.pdf", tmp_path, suffix="b", md=md)
     assert a.read_bytes() == b.read_bytes(), (
         "two renders of the same report must be byte-identical "
         "(Story is deterministic; /CreationDate must not be stamped, or stripped)")
@@ -148,8 +150,9 @@ def test_render_pdf_byte_deterministic(tmp_path):
 
 def test_render_pdf_theme_independent_d1(tmp_path):
     """D1: fixed print token set -> the PDF (text + audit) is theme-independent."""
-    light = _report_pdf("violations.pdf", tmp_path, theme="light", suffix="l")
-    dark = _report_pdf("violations.pdf", tmp_path, theme="dark", suffix="d")
+    md = _md_from_fixture("violations.pdf")
+    light = _report_pdf("violations.pdf", tmp_path, theme="light", suffix="l", md=md)
+    dark = _report_pdf("violations.pdf", tmp_path, theme="dark", suffix="d", md=md)
     assert _doc_text(light) == _doc_text(dark), (
         "PDF text must not depend on the HTML theme (fixed print stylesheet, D1)")
     for p in (light, dark):

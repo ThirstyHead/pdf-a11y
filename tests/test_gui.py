@@ -27,6 +27,31 @@ def test_main_window_init(qtbot):
     assert window.table.columnCount() == 5
     assert window.acceptDrops() is True
     assert window.cbo_theme.count() >= 6
+    assert window.selected_theme() == "light"
+
+
+def test_batch_worker_execution(tmp_path: Path, qtbot):
+    out_dir = tmp_path / "out"
+    item = BatchItem(FIXTURES / "fixable.pdf")
+    worker = BatchWorker(
+        items=[item],
+        out_dir=out_dir,
+        formats=["md", "html", "pdf", "json"],
+        theme="light",
+        auto_fix=True,
+    )
+    with qtbot.waitSignal(worker.all_completed, timeout=10000) as blocker:
+        worker.start()
+    processed, errors = blocker.args
+    assert errors == 0
+    assert processed == 1
+    assert item.status == "Completed"
+    assert (out_dir / "fixable.fixed.pdf").is_file()
+    assert (out_dir / "fixable-a11y-report.md").is_file()
+    assert (out_dir / "fixable.html").is_file()
+    assert (out_dir / "fixable-a11y-report.pdf").is_file()
+    assert (out_dir / "fixable-a11y-report.json").is_file()
+
 
 
 def test_batch_queue(tmp_path: Path):

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=PDF Accessibility Auditor
+GenericName=PDF Accessibility Auditor
+Comment=Audit and remediate PDF files against WCAG 2.1 AA and PDF/UA-1
+Exec=pdf-a11y
+Icon=pdf-a11y
+Terminal=false
+Categories=Utility;Accessibility;Office;Publishing;
+StartupWMClass=pdf-a11y

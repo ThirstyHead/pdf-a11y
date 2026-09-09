@@ -132,9 +132,14 @@ class MainWindow(QMainWindow):
         opts_layout.addSpacing(20)
         opts_layout.addWidget(QLabel("Theme:"))
         self.cbo_theme = QComboBox()
-        self.cbo_theme.addItems(available_themes())
-        if "light" in available_themes():
-            self.cbo_theme.setCurrentText("light")
+        for t in available_themes():
+            name = t.get("name") if isinstance(t, dict) else str(t)
+            label = t.get("label", name) if isinstance(t, dict) else str(t)
+            self.cbo_theme.addItem(label, userData=name)
+
+        idx = self.cbo_theme.findData("light")
+        if idx >= 0:
+            self.cbo_theme.setCurrentIndex(idx)
         opts_layout.addWidget(self.cbo_theme)
 
         opts_layout.addStretch()
@@ -258,6 +263,13 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             QMessageBox.critical(self, "Triage Error", f"Failed to inspect PDF: {exc}")
 
+    def selected_theme(self) -> str:
+        data = self.cbo_theme.currentData()
+        if data:
+            return str(data)
+        text = self.cbo_theme.currentText()
+        return text if text else "light"
+
     def toggle_batch(self):
         if self.worker and self.worker.isRunning():
             self.worker.request_stop()
@@ -279,7 +291,7 @@ class MainWindow(QMainWindow):
         if self.chk_json.isChecked():
             formats.append("json")
 
-        theme = self.cbo_theme.currentText()
+        theme = self.selected_theme()
         auto_fix = self.chk_autofix.isChecked()
         out_dir = Path(self.txt_out_dir.text()).resolve()
 
@@ -319,11 +331,20 @@ class MainWindow(QMainWindow):
         self.btn_start.setEnabled(True)
         self.lbl_status.setText(f"Batch completed: {processed} processed, {errors} error(s).")
         self._update_table()
-        QMessageBox.information(
-            self,
-            "Batch Complete",
-            f"Processing finished!\nSuccessfully processed: {processed}\nErrors: {errors}\nOutput: {self.txt_out_dir.text()}",
-        )
+        if errors > 0:
+            failures = [f"• {it.path.name}: {it.error_message}" for it in self.queue.items if it.status == "Failed"]
+            detail = "\n".join(failures) if failures else "Unknown error occurred."
+            QMessageBox.warning(
+                self,
+                "Batch Completed With Errors",
+                f"Processing completed with errors.\nSuccessfully processed: {processed}\nErrors: {errors}\n\nDetails:\n{detail}\n\nOutput: {self.txt_out_dir.text()}",
+            )
+        else:
+            QMessageBox.information(
+                self,
+                "Batch Complete",
+                f"Processing finished!\nSuccessfully processed: {processed}\nOutput: {self.txt_out_dir.text()}",
+            )
 
     def _on_error(self, idx: int, msg: str):
         self.lbl_status.setText(f"Error on item {idx + 1}: {msg}")
