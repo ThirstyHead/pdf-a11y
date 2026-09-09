@@ -261,8 +261,11 @@ def remediate_file(
     input_path: Union[str, Path],
     out_path: Optional[Union[str, Path]] = None,
     ctx: Optional[AuditContext] = None,
+    context: Optional[AuditContext] = None,
 ) -> Dict[str, Any]:
     """Remediates a PDF file, guaranteeing non-destructive processing of the original."""
+    if ctx is None and context is not None:
+        ctx = context
     in_p = Path(input_path).resolve()
     if not in_p.exists() or not in_p.is_file():
         raise FileNotFoundError(f"Source file not found: {in_p}")
