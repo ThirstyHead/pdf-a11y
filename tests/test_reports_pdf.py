@@ -164,9 +164,9 @@ def _cli(*extra):
     # No explicit cwd: the package is editable-installed, so the subprocess
     # resolves it from any CWD and the CWD-relative reports land where the
     # test chdir'd it (tmp_path). violations.pdf FAILs the audit, so exit is 1
-    # (pre-existing cmd_audit contract: 0=PASS, 1=FAIL); reports are still written.
+    # (0=PASS, 1=FAIL); reports are still written.
     return subprocess.run(
-        [sys.executable, "-m", "pdf_a11y.cli", "audit",
+        [sys.executable, "-m", "pdf_a11y.cli",
          str(FIX / "violations.pdf"), *extra],
         capture_output=True, text=True, timeout=180)
 

@@ -336,7 +336,7 @@ def _cli(*extra):
     # resolves it from any CWD and the CWD-relative report (e.g.
     # violations.html) lands where the test chdir'd it (tmp_path).
     return subprocess.run(
-        [sys.executable, "-m", "pdf_a11y.cli", "audit",
+        [sys.executable, "-m", "pdf_a11y.cli",
          str(FIX / "violations.pdf"), *extra],
         capture_output=True, text=True, timeout=120)
 

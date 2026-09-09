@@ -13,8 +13,9 @@ VIOLATIONS = FIXTURES / "violations.pdf"
 
 
 def test_cli_help_no_args(capsys):
-    rc = main([])
-    assert rc == 2
+    with pytest.raises(SystemExit) as exc:
+        main([])
+    assert exc.value.code == 2
     err = capsys.readouterr().err
     assert "pdf-a11y" in err
     assert "--fix" in err
@@ -23,8 +24,9 @@ def test_cli_help_no_args(capsys):
 
 def test_cli_gui_flag():
     with patch("pdf_a11y.gui.app.main") as mock_gui:
-        rc = main(["--gui"])
-        assert rc == 0
+        with pytest.raises(SystemExit) as exc:
+            main(["--gui"])
+        assert exc.value.code == 0
         mock_gui.assert_called_once()
 
 
@@ -33,8 +35,9 @@ def test_cli_direct_audit(tmp_path: Path):
     shutil.copyfile(CLEAN, doc)
     orig_hash = sha256_file(doc)
 
-    rc = main([str(doc), "--format", "md,json", "--output-dir", str(tmp_path)])
-    assert rc == 0
+    with pytest.raises(SystemExit) as exc:
+        main([str(doc), "--format", "md,json", "--output-dir", str(tmp_path)])
+    assert exc.value.code == 0
     # Immutability preserved
     assert sha256_file(doc) == orig_hash
     # Reports generated
@@ -48,13 +51,15 @@ def test_cli_direct_fix(tmp_path: Path):
     orig_hash = sha256_file(doc)
 
     out_pdf = tmp_path / "fixed.pdf"
-    rc = main([
-        str(doc),
-        "--fix",
-        "--out-pdf", str(out_pdf),
-        "--format", "md,html,pdf,json",
-        "--output-dir", str(tmp_path)
-    ])
+    with pytest.raises(SystemExit) as exc:
+        main([
+            str(doc),
+            "--fix",
+            "--out-pdf", str(out_pdf),
+            "--format", "md,html,pdf,json",
+            "--output-dir", str(tmp_path)
+        ])
+    assert exc.value.code in (0, 1)
 
     # Source untouched
     assert sha256_file(doc) == orig_hash
@@ -74,11 +79,13 @@ def test_cli_direct_triage(tmp_path: Path):
 
     out_triaged = tmp_path / "triaged.pdf"
     with patch("pdf_a11y.cli.run_interactive_triage") as mock_triage:
-        rc = main([
-            str(doc),
-            "--triage",
-            "--out-pdf", str(out_triaged),
-            "--output-dir", str(tmp_path)
-        ])
+        with pytest.raises(SystemExit) as exc:
+            main([
+                str(doc),
+                "--triage",
+                "--out-pdf", str(out_triaged),
+                "--output-dir", str(tmp_path)
+            ])
+        assert exc.value.code in (0, 1)
         mock_triage.assert_called_once()
         assert sha256_file(doc) == orig_hash

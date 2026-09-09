@@ -136,12 +136,14 @@ def test_fix_bread_without_scaffold_unchanged(tmp_path):
 
 # -- e2e: CLI flag wiring (default-on + opt-out + back-compat) ------------------
 
-def test_cli_fix_default_scaffolds(tmp_path):
-    """CLI: `fix` with no flags scaffolds an untagged doc by default."""
+def test_cli_fix_scaffold_default(tmp_path):
+    """CLI: `--fix` scaffolds an untagged doc by default."""
+    import pytest
     from pdf_a11y.cli import main
     out = tmp_path / "default.pdf"
-    rc = main(["fix", str(BREAD), "--out", str(out)])
-    assert rc == 0
+    with pytest.raises(SystemExit) as exc:
+        main([str(BREAD), "--fix", "--out-pdf", str(out)])
+    assert exc.value.code == 0
     from pdf_a11y.docmodel import DocModel
     dm = DocModel.open(out)
     try:
@@ -152,10 +154,12 @@ def test_cli_fix_default_scaffolds(tmp_path):
 
 def test_cli_fix_no_scaffold_opt_out(tmp_path):
     """CLI: --no-scaffold preserves the opt-in (manual) behavior."""
+    import pytest
     from pdf_a11y.cli import main
     out = tmp_path / "noscaffold.pdf"
-    rc = main(["fix", str(BREAD), "--no-scaffold", "--out", str(out)])
-    assert rc == 1  # untagged doc still fails (no tree built)
+    with pytest.raises(SystemExit) as exc:
+        main([str(BREAD), "--fix", "--no-scaffold", "--out-pdf", str(out)])
+    assert exc.value.code == 1  # untagged doc still fails (no tree built)
     from pdf_a11y.docmodel import DocModel
     dm = DocModel.open(out)
     try:
@@ -165,11 +169,13 @@ def test_cli_fix_no_scaffold_opt_out(tmp_path):
 
 
 def test_cli_fix_scaffold_backcompat_alias(tmp_path):
-    """CLI: --scaffold still accepted (back-compat; scaffold stays on)."""
+    """CLI: --scaffold still accepted (scaffold stays on)."""
+    import pytest
     from pdf_a11y.cli import main
     out = tmp_path / "alias.pdf"
-    rc = main(["fix", str(BREAD), "--scaffold", "--out", str(out)])
-    assert rc == 0
+    with pytest.raises(SystemExit) as exc:
+        main([str(BREAD), "--fix", "--scaffold", "--out-pdf", str(out)])
+    assert exc.value.code == 0
     from pdf_a11y.docmodel import DocModel
     dm = DocModel.open(out)
     try:

@@ -72,14 +72,6 @@ pdf-a11y [file] [--gui] [--fix] [--triage] [--format md,html,pdf,json] [--theme 
 | `--out-pdf` | `None` | Custom output path for remediated PDF (must differ from input) |
 | `--batch` | `False` | Process all `.pdf` documents in target directory |
 
-### Subcommand Backward Compatibility
-
-All prior subcommands remain fully supported:
-- `pdf-a11y audit FILE [--json] [--report] [--format] [--theme]`
-- `pdf-a11y remediate FILE --findings FILE.json --out FILE.fixed.pdf`
-- `pdf-a11y fix FILE [--out FILE.fixed.pdf] [--json] [--report]`
-- `pdf-a11y rules`
-
 ---
 
 ## Desktop GUI (`pdf-a11y-gui`)

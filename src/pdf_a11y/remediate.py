@@ -291,5 +291,7 @@ def remediate_file(
         "original_file_immutable": True,
         "remediations_applied": applied,
         "status": res.get("status"),
+        "remediation": res.get("remediation"),
+        "reaudit": res.get("reaudit"),
         "pass": res.get("reaudit", {}).get("summary", {}).get("pass", False) if res.get("reaudit") else False,
     }

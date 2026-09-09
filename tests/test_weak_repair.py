@@ -38,12 +38,14 @@ def test_repair_is_noop_without_flag(tmp_path):
 
 
 def test_audit_repair_flag_does_not_mutate_input(tmp_path):
-    """`audit --repair` must NOT touch the input file (audit stays read-only;
-    the repair capability only exists on the write commands). Regression for
-    a real bug found during Phase B review."""
+    """Running without --fix must NOT touch the input file (audit stays read-only;
+    the repair capability only exists on the write commands)."""
+    import pytest
     from pdf_a11y.cli import main
     copy = tmp_path / "input.pdf"
     copy.write_bytes(SRC.read_bytes())
     before = copy.read_bytes()
-    assert main(["audit", str(copy), "--repair"]) == 1   # orphan -> serious -> fail
+    with pytest.raises(SystemExit) as exc:
+        main([str(copy), "--repair"])
+    assert exc.value.code == 1   # orphan -> serious -> fail
     assert copy.read_bytes() == before                   # file untouched
