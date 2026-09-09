@@ -12,6 +12,68 @@ Part of the **Four-Tool Office & Document Accessibility Suite**:
 
 ---
 
+## Installation
+
+### 1. Desktop GUI Application (Pre-built Installers)
+
+Pre-built desktop installers with bundled dependencies (including PySide6/Qt) are available on the [GitHub Releases](https://github.com/ThirstyHead/pdf-a11y/releases) page:
+
+- **macOS (`.dmg`)**:
+  1. Download `pdf-a11y-v<version>-macos.dmg`.
+  2. Double-click to mount the disk image.
+  3. Drag `pdf-a11y.app` into `/Applications`.
+  4. Launch `pdf-a11y` from Spotlight, Launchpad, or the Applications folder.
+- **Windows (`.exe`)**:
+  1. Download `pdf-a11y-v<version>-windows-setup.exe`.
+  2. Run the installer wizard to install into `Program Files` and create Start Menu / Desktop shortcuts.
+- **Linux (`.AppImage`)**:
+  1. Download `pdf-a11y-v<version>-x86_64.AppImage`.
+  2. Make it executable: `chmod +x pdf-a11y-v<version>-x86_64.AppImage`.
+  3. Run directly: `./pdf-a11y-v<version>-x86_64.AppImage`.
+
+### 2. Standalone Headless CLI Binary (No Python Required)
+
+Single-file headless CLI executables are available on [GitHub Releases](https://github.com/ThirstyHead/pdf-a11y/releases) for agentic workflows, CI/CD pipelines, and terminal environments:
+
+```bash
+# Example: Download macOS Apple Silicon standalone CLI binary
+curl -LO https://github.com/ThirstyHead/pdf-a11y/releases/latest/download/pdf-a11y-macos-arm64
+chmod +x pdf-a11y-macos-arm64
+sudo mv pdf-a11y-macos-arm64 /usr/local/bin/pdf-a11y
+
+# Verify installation
+pdf-a11y --help
+```
+
+### 3. Ephemeral Execution via `uvx`
+
+Run `pdf-a11y` instantly in any environment without managing Python virtual environments:
+
+```bash
+# Run headless CLI audit & remediation
+uvx pdf-a11y document.pdf --fix --format md,html,pdf,json
+
+# Launch desktop GUI ephemerally
+uvx --with "pdf-a11y[gui]" pdf-a11y --gui
+```
+
+### 4. Python Package via `pip`
+
+Install into a local Python 3.10+ virtual environment:
+
+```bash
+# Headless CLI only (lean, no Qt dependencies)
+pip install pdf-a11y
+
+# With PySide6 Desktop GUI support
+pip install "pdf-a11y[gui]"
+
+# Full installation (dev, GUI, OCR, packaging)
+pip install "pdf-a11y[all]"
+```
+
+---
+
 ## Sibling Parity & Feature Matrix
 
 | Feature | `docx-a11y` | `pptx-a11y` | `xlsx-a11y` | `pdf-a11y` |
@@ -31,10 +93,6 @@ Part of the **Four-Tool Office & Document Accessibility Suite**:
 ## Quickstart
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[gui]"
-
 # 1. Audit and generate Markdown report
 pdf-a11y document.pdf
 
