@@ -9,3 +9,5 @@ dist/
 .hermes/
 tests/tmp/
 tests/fixtures/tmp/
+*-a11y-report.*
+*-audit.json
