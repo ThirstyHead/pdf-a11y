@@ -3,7 +3,14 @@ import argparse
 import json
 from pathlib import Path
 import sys
-from typing import List, Optional
+from typing import List, Optional, Set
+
+from engine_a11y.criteria_config import (
+    apply_criteria_config,
+    generate_criteria_template,
+    load_criteria_config,
+)
+from engine_a11y.findings import summarize
 
 from . import __version__
 from .audit import audit_file, audit_result_to_json
@@ -21,6 +28,7 @@ def process_single_file(
     input_path: Path,
     args: argparse.Namespace,
     out_dir: Path,
+    excluded_sc: Optional[Set[str]] = None,
 ) -> bool:
     """Processes a single .pdf file: triage, audit, remediation, and reporting."""
     stem = input_path.stem
@@ -35,6 +43,10 @@ def process_single_file(
 
     # 1. Initial audit
     audit_before = audit_file(str(target_path))
+    if excluded_sc:
+        apply_criteria_config(audit_before.get("findings", []), excluded_sc)
+        audit_before["summary"] = summarize(audit_before.get("findings", []))
+
     audit_after = None
     rem_res = {}
 
@@ -59,6 +71,9 @@ def process_single_file(
         for fix in rem_res.get("remediations_applied", []):
             print(f" - {fix}")
         audit_after = audit_file(str(fixed_pdf))
+        if excluded_sc:
+            apply_criteria_config(audit_after.get("findings", []), excluded_sc)
+            audit_after["summary"] = summarize(audit_after.get("findings", []))
 
     # 3. Render reports
     raw_formats = getattr(args, "format", "md") or "md"
@@ -77,6 +92,7 @@ def process_single_file(
         audit_before,
         remediation=rem_res.get("remediation") if getattr(args, "fix", False) else None,
         source_path=str(input_path),
+        excluded_sc=excluded_sc,
     )
 
     if "md" in formats:
@@ -153,6 +169,16 @@ def main(argv: Optional[List[str]] = None) -> None:
         action="store_true",
         help="Scaffold tag tree (default)",
     )
+    parser.add_argument(
+        "--criteria",
+        help="Path to criteria configuration checklist ([x]/[ ]) or YAML for what-if testing",
+    )
+    parser.add_argument(
+        "--init-criteria",
+        nargs="?",
+        const="a11y-criteria.txt",
+        help="Generate default criteria checklist file ([x]/[ ]) and exit",
+    )
 
     args = parser.parse_args(argv)
 
@@ -165,6 +191,12 @@ def main(argv: Optional[List[str]] = None) -> None:
             print(f"Error: GUI dependencies not installed. Run 'pip install pdf-a11y[gui]'. ({e})", file=sys.stderr)
             sys.exit(2)
 
+    if args.init_criteria:
+        out_criteria = Path(args.init_criteria)
+        generate_criteria_template(out_criteria)
+        print(f"Generated criteria checklist at: {out_criteria}")
+        sys.exit(0)
+
     if not args.file:
         parser.print_help(sys.stderr)
         sys.exit(2)
@@ -173,6 +205,14 @@ def main(argv: Optional[List[str]] = None) -> None:
     if not input_path.exists():
         print(f"Error: File or directory '{input_path}' not found.", file=sys.stderr)
         sys.exit(2)
+
+    excluded_sc: Set[str] = set()
+    if args.criteria:
+        criteria_path = Path(args.criteria)
+        if not criteria_path.exists():
+            print(f"Error: Criteria config '{criteria_path}' not found.", file=sys.stderr)
+            sys.exit(2)
+        _, excluded_sc = load_criteria_config(criteria_path)
 
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -186,12 +226,12 @@ def main(argv: Optional[List[str]] = None) -> None:
         all_passed = True
         for f in files:
             print(f"\nProcessing: {f.name}...")
-            passed = process_single_file(f, args, out_dir)
+            passed = process_single_file(f, args, out_dir, excluded_sc=excluded_sc)
             if not passed:
                 all_passed = False
         sys.exit(0 if all_passed else 1)
     else:
-        passed = process_single_file(input_path, args, out_dir)
+        passed = process_single_file(input_path, args, out_dir, excluded_sc=excluded_sc)
         sys.exit(0 if passed else 1)
 
 
