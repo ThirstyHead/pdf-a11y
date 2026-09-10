@@ -12,7 +12,7 @@ license = { text = "MIT" }
 authors = [{ name = "pdf-a11y contributors" }]
 keywords = ["accessibility", "wcag", "pdf", "pdf-ua", "pdf/ua", "audit", "remediation", "pikepdf"]
 dependencies = [
-    "engine-a11y @ git+https://github.com/ThirstyHead/engine-a11y.git@v0.2.0",
+    "engine-a11y @ git+https://github.com/ThirstyHead/engine-a11y.git@v0.2.1",
     "pikepdf>=9.0",
     "pymupdf>=1.24",
     "pdfplumber>=0.11",
