@@ -30,6 +30,61 @@ def test_main_window_init(qtbot):
     assert window.selected_theme() == "light"
 
 
+def test_two_pane_ui_components(qtbot):
+    window = MainWindow()
+    qtbot.addWidget(window)
+    assert hasattr(window, "pane_before")
+    assert hasattr(window, "pane_after")
+    assert hasattr(window, "btn_remediate_bridge")
+    assert hasattr(window, "tree_after")
+    assert hasattr(window, "btn_open_output_folder")
+
+
+def test_two_pane_workflow_execution(tmp_path: Path, qtbot):
+    window = MainWindow()
+    qtbot.addWidget(window)
+
+    out_dir = tmp_path / "output"
+    window.txt_out_dir.setText(str(out_dir))
+
+    # Add sample to Before pane
+    window.queue.add_file(FIXTURES / "fixable.pdf")
+    window._update_ui_state()
+    assert window.table_before.rowCount() == 1
+
+    # Execute batch via button trigger
+    with qtbot.waitSignal(window.worker_completed_signal, timeout=10000):
+        window.start_remediation_flow()
+
+    # Verify After tree is populated
+    assert window.tree_after.topLevelItemCount() == 1
+    doc_group = window.tree_after.topLevelItem(0)
+    assert doc_group is not None
+    assert "fixable.pdf" in doc_group.text(0)
+    child_texts = [c.text(0) for i in range(doc_group.childCount()) if (c := doc_group.child(i)) is not None]
+    assert any("Fixed PDF" in t for t in child_texts)
+    assert any("Audit Report" in t for t in child_texts)
+
+    # Test open_output_folder
+    window.open_output_folder()
+    assert out_dir.exists()
+
+    # Test view_selected_report when report is selected in tree
+    md_child = None
+    for i in range(doc_group.childCount()):
+        child = doc_group.child(i)
+        if child is not None and "Audit Report" in child.text(0):
+            md_child = child
+            break
+    assert md_child is not None
+    window.tree_after.setCurrentItem(md_child)
+    # Patch ReportViewerDialog.exec so it doesn't block headless test
+    from unittest.mock import patch
+    with patch("pdf_a11y.gui.main_window.ReportViewerDialog.exec", return_value=1) as mock_exec:
+        window.view_selected_report()
+        assert mock_exec.called
+
+
 def test_batch_worker_execution(tmp_path: Path, qtbot):
     out_dir = tmp_path / "out"
     item = BatchItem(FIXTURES / "fixable.pdf")
