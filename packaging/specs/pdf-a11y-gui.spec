@@ -2,6 +2,7 @@
 import sys
 from pathlib import Path
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+from engine_a11y.packaging.specs import COMMON_HIDDEN_IMPORTS, COMMON_EXCLUDES
 
 block_cipher = None
 
@@ -10,22 +11,19 @@ SPEC_ROOT = Path(SPECPATH)
 REPO_ROOT = SPEC_ROOT.parent.parent
 
 datas = collect_data_files('pdf_a11y') + collect_data_files('engine_a11y')
-hiddenimports = collect_submodules('PySide6') + collect_submodules('pdf_a11y.gui') + [
-    'engine_a11y',
-    'engine_a11y.criteria_config',
-    'engine_a11y.findings',
-    'fitz',
-    'pikepdf',
-    'pdfplumber',
-    'wcag_contrast_ratio',
-]
+hiddenimports = sorted(list(set(
+    collect_submodules('PySide6')
+    + collect_submodules('pdf_a11y.gui')
+    + COMMON_HIDDEN_IMPORTS
+    + [
+        'fitz',
+        'pikepdf',
+        'pdfplumber',
+        'wcag_contrast_ratio',
+    ]
+)))
 
-excludes = [
-    'tkinter',
-    'unittest',
-    'matplotlib',
-    'scipy',
-]
+excludes = sorted(list(set(COMMON_EXCLUDES)))
 
 a = Analysis(
     [str(REPO_ROOT / 'packaging' / 'entrypoints' / 'gui_main.py')],
