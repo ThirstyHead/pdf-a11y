@@ -2,6 +2,7 @@
 import sys
 from pathlib import Path
 from PyInstaller.utils.hooks import collect_data_files
+from engine_a11y.packaging.specs import COMMON_HIDDEN_IMPORTS, COMMON_EXCLUDES
 
 block_cipher = None
 
@@ -10,34 +11,35 @@ REPO_ROOT = SPEC_ROOT.parent.parent
 
 datas = collect_data_files('pdf_a11y') + collect_data_files('engine_a11y')
 
-excludes = [
-    'PySide6',
-    'PySide6.QtCore',
-    'PySide6.QtGui',
-    'PySide6.QtWidgets',
-    'shiboken6',
-    'tkinter',
-    'unittest',
-    'matplotlib',
-    'scipy',
-    'pdf_a11y.gui',
-    'engine_a11y.gui',
-]
+excludes = sorted(list(set(
+    COMMON_EXCLUDES
+    + [
+        'PySide6',
+        'PySide6.QtCore',
+        'PySide6.QtGui',
+        'PySide6.QtWidgets',
+        'shiboken6',
+        'pdf_a11y.gui',
+        'engine_a11y.gui',
+    ]
+)))
+
+hiddenimports = sorted(list(set(
+    COMMON_HIDDEN_IMPORTS
+    + [
+        'fitz',
+        'pikepdf',
+        'pdfplumber',
+        'wcag_contrast_ratio',
+    ]
+)))
 
 a = Analysis(
     [str(REPO_ROOT / 'packaging' / 'entrypoints' / 'cli_main.py')],
     pathex=[str(REPO_ROOT / 'src')],
     binaries=[],
     datas=datas,
-    hiddenimports=[
-        'engine_a11y',
-        'engine_a11y.criteria_config',
-        'engine_a11y.findings',
-        'fitz',
-        'pikepdf',
-        'pdfplumber',
-        'wcag_contrast_ratio',
-    ],
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

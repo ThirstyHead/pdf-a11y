@@ -181,4 +181,4 @@ jobs:
           echo "Publishing release assets to ${TARGET_TAG}..."
           mkdir -p release-assets
           find artifacts -type f -exec cp {} release-assets/ \;
-          gh release upload "${TARGET_TAG}" release-assets/* --clobber
+          gh release upload "${TARGET_TAG}" release-assets/* --clobber --repo "${{ github.repository }}"
